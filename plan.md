@@ -37,12 +37,15 @@
 - [x] Resend email on export ready (optional — skipped if RESEND_API_KEY not set)
 - [x] Export panel UI on book page with PDF/EPUB buttons, auto-download, recent export history
 
-## Milestone 6 — Stripe Billing & Credit Management
-- [ ] Stripe products: Free / Starter (£9) / Pro (£29)
-- [ ] Stripe Checkout + Customer Portal
-- [ ] Webhook handler: `/api/webhooks/stripe`
-- [ ] Monthly credit refresh on renewal
-- [ ] Plan info + usage stats in dashboard
+## Milestone 6 — Stripe Billing & Credit Management ✓
+- [x] Stripe plan config: Free (10cr) / Starter £9 (50cr/mo) / Pro £29 (200cr/mo)
+- [x] Stripe Checkout (`POST /api/billing/checkout`) — pre-fills customer, idempotent customer link
+- [x] Customer Portal (`POST /api/billing/portal`) — manage/cancel subscription
+- [x] Webhook handler (`POST /api/webhooks/stripe`) — verified signatures, handles checkout.session.completed, subscription.updated/deleted, invoice.paid/payment_failed
+- [x] Monthly credit refresh via `refresh_credits_for_plan()` RPC on invoice.paid
+- [x] `subscriptions` table with RLS + auto-create trigger for new users
+- [x] Billing card on dashboard — current plan, credit bar, upgrade buttons, manage link
+- [x] Lazy Stripe singleton (no build-time error when key not set)
 
 ## Milestone 7 — Polish, Responsiveness & Emails
 - [ ] Mobile-responsive layouts

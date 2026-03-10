@@ -3,7 +3,9 @@ import { Plus, BookOpen, Sparkles, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/server"
+import { BillingCard } from "./_components/billing-card"
 import type { Book } from "@/lib/types"
+import type { Plan } from "@/lib/stripe"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -13,14 +15,21 @@ export default async function DashboardPage() {
 
   const firstName = user?.email?.split("@")[0] ?? "there"
 
-  const [{ data: books }, { data: credits }] = await Promise.all([
+  const [{ data: books }, { data: credits }, { data: subscription }] = await Promise.all([
     supabase.from("books").select("*").order("updated_at", { ascending: false }),
     supabase.from("credits").select("balance").eq("user_id", user!.id).single(),
+    supabase
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("user_id", user!.id)
+      .single(),
   ])
 
   const typedBooks = (books ?? []) as Book[]
   const totalChapters = typedBooks.reduce((s, b) => s + b.chapter_count, 0)
   const creditBalance = credits?.balance ?? 0
+  const currentPlan = (subscription?.plan ?? "free") as Plan
+  const periodEnd = subscription?.current_period_end ?? null
 
   return (
     <div className="flex flex-col h-full">
@@ -40,25 +49,39 @@ export default async function DashboardPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-8 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <StatCard label="Books" value={String(typedBooks.length)} />
-          <StatCard label="Chapters" value={String(totalChapters)} />
-          <StatCard label="AI credits" value={String(creditBalance)} accent />
-        </div>
-
-        {typedBooks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div>
-            <h2 className="text-sm font-medium text-muted-foreground mb-3">Recent books</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {typedBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
+        <div className="flex gap-8 items-start">
+          {/* Main column */}
+          <div className="flex-1 min-w-0">
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <StatCard label="Books" value={String(typedBooks.length)} />
+              <StatCard label="Chapters" value={String(totalChapters)} />
+              <StatCard label="AI credits" value={String(creditBalance)} accent />
             </div>
+
+            {typedBooks.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div>
+                <h2 className="text-sm font-medium text-muted-foreground mb-3">Recent books</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {typedBooks.map((book) => (
+                    <BookCard key={book.id} book={book} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Billing sidebar */}
+          <div className="w-72 shrink-0 hidden lg:block">
+            <BillingCard
+              currentPlan={currentPlan}
+              credits={creditBalance}
+              currentPeriodEnd={periodEnd}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )
