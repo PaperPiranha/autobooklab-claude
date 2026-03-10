@@ -42,6 +42,9 @@ yarn-error.log*
 .agents/
 skills-lock.json
 
+# Local dev credentials (never commit)
+supabase.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
