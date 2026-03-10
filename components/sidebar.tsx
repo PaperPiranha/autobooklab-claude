@@ -2,25 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, LayoutDashboard, Library, Settings } from "lucide-react"
+import { BookOpen, LayoutDashboard, Library } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ThemeToggle } from "./theme-toggle"
 
 const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "My Books",
-    href: "/books",
-    icon: Library,
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "My Books", href: "/books", icon: Library },
 ]
 
 export function Sidebar() {
@@ -29,16 +17,19 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-60 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20">
-          <BookOpen className="h-4 w-4 text-primary" />
+      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20">
+            <BookOpen className="h-4 w-4 text-primary" />
+          </div>
+          <span
+            className="text-[15px] font-normal text-foreground"
+            style={{ fontFamily: "var(--font-instrument-serif)" }}
+          >
+            AutoBook<span className="text-primary">Lab</span>
+          </span>
         </div>
-        <span
-          className="text-[15px] font-normal text-foreground"
-          style={{ fontFamily: "var(--font-instrument-serif)" }}
-        >
-          AutoBook<span className="text-primary">Lab</span>
-        </span>
+        <ThemeToggle />
       </div>
 
       {/* Navigation */}
@@ -56,12 +47,7 @@ export function Sidebar() {
                   : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
               )}
             >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isActive ? "text-primary" : "opacity-70"
-                )}
-              />
+              <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "opacity-70")} />
               {label}
             </Link>
           )

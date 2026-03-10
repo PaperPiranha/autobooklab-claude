@@ -53,7 +53,7 @@ export default async function DashboardPage() {
           {/* Main column */}
           <div className="flex-1 min-w-0">
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
               <StatCard label="Books" value={String(typedBooks.length)} />
               <StatCard label="Chapters" value={String(totalChapters)} />
               <StatCard label="AI credits" value={String(creditBalance)} accent />
@@ -71,6 +71,15 @@ export default async function DashboardPage() {
                 </div>
               </div>
             )}
+
+            {/* Billing card on mobile (below books) */}
+            <div className="mt-8 lg:hidden">
+              <BillingCard
+                currentPlan={currentPlan}
+                credits={creditBalance}
+                currentPeriodEnd={periodEnd}
+              />
+            </div>
           </div>
 
           {/* Billing sidebar */}

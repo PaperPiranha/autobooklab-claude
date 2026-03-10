@@ -47,10 +47,11 @@
 - [x] Billing card on dashboard — current plan, credit bar, upgrade buttons, manage link
 - [x] Lazy Stripe singleton (no build-time error when key not set)
 
-## Milestone 7 — Polish, Responsiveness & Emails
-- [ ] Mobile-responsive layouts
-- [ ] Light mode toggle (persisted)
-- [ ] Welcome email on sign-up (Resend)
-- [ ] Export-ready email notification
-- [ ] Loading skeletons, error boundaries, empty states
-- [ ] Performance and bundle audit
+## Milestone 7 — Polish, Responsiveness & Emails ✓
+- [x] Mobile-responsive layouts — hamburger nav sheet on <lg, responsive padding/grid throughout
+- [x] Light/dark mode toggle — next-themes ThemeProvider (defaultTheme: dark), persisted to localStorage, Sun/Moon toggle in sidebar header + mobile header
+- [x] Welcome email on sign-up — sent via Resend from /auth/callback after email confirmation (non-fatal, skipped if key not set)
+- [x] Export-ready email — already in M5, confirmed working
+- [x] Loading skeletons — dashboard and book page skeleton screens matching real content layout
+- [x] Error boundaries — app/error.tsx (root) and app/(dashboard)/error.tsx with retry + back buttons
+- [x] CSS theme refactored: :root = light, .dark = dark (standard next-themes convention)

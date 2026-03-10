@@ -56,7 +56,7 @@ export default async function BookPage({ params }: PageProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="flex items-start justify-between border-b border-border px-8 py-5">
+      <header className="flex items-start justify-between border-b border-border px-4 sm:px-8 py-5">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" className="mt-0.5 shrink-0" asChild>
             <Link href="/dashboard">
@@ -97,13 +97,13 @@ export default async function BookPage({ params }: PageProps) {
             className="text-muted-foreground hover:text-destructive gap-2"
           >
             <Trash2 className="h-4 w-4" />
-            Delete book
+            <span className="hidden sm:inline">Delete book</span>
           </Button>
         </form>
       </header>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
         <div className="max-w-2xl space-y-8">
           {/* Chapters section */}
           <section>

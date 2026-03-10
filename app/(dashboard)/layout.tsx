@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/sidebar"
 import { UserMenu } from "@/components/user-menu"
+import { MobileHeader } from "@/components/mobile-nav"
 
 export default async function DashboardLayout({
   children,
@@ -18,11 +19,13 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
-      <div className="flex flex-col h-full">
+    <div className="flex h-screen flex-col overflow-hidden bg-background lg:flex-row">
+      {/* Mobile top bar */}
+      <MobileHeader email={user.email ?? ""} />
+
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex lg:flex-col lg:h-full">
         <Sidebar />
-        {/* User menu pinned to sidebar bottom */}
         <div className="border-r border-sidebar-border bg-sidebar w-60 p-2 border-t border-t-sidebar-border">
           <UserMenu email={user.email ?? ""} />
         </div>
