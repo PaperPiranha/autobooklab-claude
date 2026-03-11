@@ -16,6 +16,12 @@ import { FormatToolbar } from "./format-toolbar"
 import { TableElement } from "./table-element"
 import { TocElement } from "./toc-element"
 import { ShapeElement } from "./shape-element"
+import { BlockquoteElement } from "./renderers/blockquote-element"
+import { ListElement } from "./renderers/list-element"
+import { CtaButtonElement } from "./renderers/cta-button-element"
+import { VideoEmbedElement } from "./renderers/video-embed-element"
+import { AuthorBioElement } from "./renderers/author-bio-element"
+import { IconElement } from "./renderers/icon-element"
 import { useEditor } from "./editor-context"
 
 type HandleDir = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
@@ -426,6 +432,30 @@ export function ElementBlock({
         shapeType={content.shapeType || "rect"}
         styles={styles}
       />
+    )
+  } else if (type === "blockquote") {
+    contentNode = (
+      <BlockquoteElement element={element} onUpdate={onUpdate} isNavigator={isNavigator} />
+    )
+  } else if (type === "ordered-list" || type === "unordered-list") {
+    contentNode = (
+      <ListElement element={element} onUpdate={onUpdate} isNavigator={isNavigator} />
+    )
+  } else if (type === "cta-button") {
+    contentNode = (
+      <CtaButtonElement element={element} onUpdate={onUpdate} isNavigator={isNavigator} />
+    )
+  } else if (type === "video-embed") {
+    contentNode = (
+      <VideoEmbedElement element={element} onUpdate={onUpdate} />
+    )
+  } else if (type === "author-bio") {
+    contentNode = (
+      <AuthorBioElement element={element} onUpdate={onUpdate} isNavigator={isNavigator} />
+    )
+  } else if (type === "icon-element") {
+    contentNode = (
+      <IconElement element={element} />
     )
   }
 

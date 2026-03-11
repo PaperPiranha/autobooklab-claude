@@ -152,6 +152,55 @@ export function makeDefaultElement(type: ElementType, variant?: string): PageEle
         styles: { backgroundColor: "#F97316", borderRadius: shapeType === "rect" ? 8 : 0, opacity: 100, strokeColor: "transparent", strokeWidth: 0 },
       }
     }
+    case "blockquote":
+      return {
+        ...base,
+        x: 97, y: 200, w: 600, h: 160,
+        content: { text: "Great things are done by a series of small things brought together.", attribution: "" },
+        styles: { fontSize: 22, color: "#1a1a1a", italic: true, textAlign: "left", borderColor: "#F97316", borderWidth: 4, padding: 20, lineHeight: 1.5 },
+      }
+    case "ordered-list":
+      return {
+        ...base,
+        x: 97, y: 200, w: 400, h: 200,
+        content: { items: ["First item", "Second item", "Third item"] },
+        styles: { fontSize: 16, color: "#1a1a1a", lineHeight: 1.7 },
+      }
+    case "unordered-list":
+      return {
+        ...base,
+        x: 97, y: 200, w: 400, h: 200,
+        content: { items: ["First item", "Second item", "Third item"] },
+        styles: { fontSize: 16, color: "#1a1a1a", lineHeight: 1.7 },
+      }
+    case "cta-button":
+      return {
+        ...base,
+        x: 277, y: 500, w: 240, h: 60,
+        content: { text: "Get Started Now", url: "" },
+        styles: { fontSize: 16, fontWeight: 700, color: "#ffffff", backgroundColor: "#F97316", borderRadius: 8, textAlign: "center" },
+      }
+    case "video-embed":
+      return {
+        ...base,
+        x: 117, y: 200, w: 560, h: 315,
+        content: { url: "", videoId: "", platform: "youtube" },
+        styles: { borderRadius: 8 },
+      }
+    case "author-bio":
+      return {
+        ...base,
+        x: 72, y: 400, w: 650, h: 120,
+        content: { name: "Author Name", bio: "Short author bio goes here.", src: "" },
+        styles: { fontSize: 14, color: "#1a1a1a", backgroundColor: "#f9f9f9", padding: 16, borderRadius: 8 },
+      }
+    case "icon-element":
+      return {
+        ...base,
+        x: 357, y: 300, w: 80, h: 80,
+        content: { iconName: "Star", color: "#F97316" },
+        styles: { opacity: 100 },
+      }
     default:
       return {
         ...base,

@@ -36,6 +36,7 @@ export default async function EditorPage({ params }: PageProps) {
         description: book.description ?? "",
       }}
       initialPages={initialPages}
+      userId={user.id}
     />
   )
 }

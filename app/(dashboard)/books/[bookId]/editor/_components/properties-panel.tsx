@@ -1,15 +1,19 @@
 "use client"
 
-import { Trash2, AlignLeft, AlignCenter, AlignRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Trash2, AlignLeft, AlignCenter, AlignRight, Star } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PageElement } from "@/lib/editor/types"
+import { extractYouTubeId } from "./renderers/video-embed-element"
+import * as LucideIcons from "lucide-react"
 
 interface PropertiesPanelProps {
   element: PageElement
   onUpdate: (updates: Partial<PageElement>) => void
   onDelete: () => void
+  userId?: string
 }
 
 function SectionHeader({ label }: { label: string }) {
@@ -44,7 +48,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 const TEXT_TYPES = new Set(["text", "heading", "chapter-heading", "callout", "page-number"])
 const IMAGE_TYPES = new Set(["image", "captioned-image"])
 
-export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanelProps) {
+export function PropertiesPanel({ element, onUpdate, onDelete, userId }: PropertiesPanelProps) {
   const { styles, content } = element
   const isTextType = TEXT_TYPES.has(element.type)
   const isImageType = IMAGE_TYPES.has(element.type)
@@ -52,6 +56,32 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
   const isShape = element.type === "shape"
   const isTable = element.type === "table"
   const isToc = element.type === "toc"
+  const isBlockquote = element.type === "blockquote"
+  const isOrderedList = element.type === "ordered-list"
+  const isUnorderedList = element.type === "unordered-list"
+  const isList = isOrderedList || isUnorderedList
+  const isCtaButton = element.type === "cta-button"
+  const isVideoEmbed = element.type === "video-embed"
+  const isAuthorBio = element.type === "author-bio"
+  const isIconElement = element.type === "icon-element"
+
+  const [iconSearch, setIconSearch] = useState("")
+  const [isFaved, setIsFaved] = useState(false)
+
+  // Common icon names for the picker
+  const ICON_NAMES = [
+    "Star", "Heart", "Check", "CheckCircle", "X", "XCircle", "AlertCircle", "Info",
+    "Lightbulb", "Zap", "Target", "ArrowRight", "ArrowLeft", "ChevronRight",
+    "BookOpen", "Quote", "MessageSquare", "Mail", "Phone", "Globe", "Link",
+    "Download", "Upload", "Share2", "Copy", "Edit", "Trash2", "Plus", "Minus",
+    "Search", "Filter", "Settings", "User", "Users", "Shield", "Lock", "Unlock",
+    "Eye", "EyeOff", "Bell", "Calendar", "Clock", "Map", "Camera", "Video",
+    "Music", "Headphones", "Mic", "Image", "FileText", "Folder", "Tag",
+  ]
+
+  const filteredIcons = iconSearch
+    ? ICON_NAMES.filter((n) => n.toLowerCase().includes(iconSearch.toLowerCase()))
+    : ICON_NAMES
 
   function updateStyle(key: keyof typeof styles, value: unknown) {
     onUpdate({ styles: { ...styles, [key]: value } })
@@ -59,6 +89,19 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
 
   function updateContent(key: keyof typeof content, value: unknown) {
     onUpdate({ content: { ...content, [key]: value } })
+  }
+
+  function saveToFavourites() {
+    try {
+      const key = `autobooklab:favourites:${userId ?? "anon"}`
+      const existing = JSON.parse(localStorage.getItem(key) ?? "[]") as PageElement[]
+      const stripped = { ...element, id: "" } // id will be replaced on insert
+      localStorage.setItem(key, JSON.stringify([...existing, stripped]))
+      setIsFaved(true)
+      setTimeout(() => setIsFaved(false), 2000)
+    } catch {
+      // ignore
+    }
   }
 
   return (
@@ -121,7 +164,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
       )}
 
       {/* Typography */}
-      {(isTextType || isTable || isToc) && (
+      {(isTextType || isTable || isToc || isBlockquote || isList) && (
         <div className="px-3 py-3 border-b border-border">
           <SectionHeader label="Typography" />
           <div className="flex flex-col gap-2">
@@ -138,7 +181,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
               />
             </div>
 
-            {isTextType && (
+            {(isTextType || isBlockquote || isList) && (
               <>
                 <div className="flex flex-col gap-1">
                   <FieldLabel label="Font weight" />
@@ -201,8 +244,224 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
         </div>
       )}
 
+      {/* Blockquote */}
+      {isBlockquote && (
+        <div className="px-3 py-3 border-b border-border">
+          <SectionHeader label="Blockquote" />
+          <div className="flex flex-col gap-2">
+            <ColorField
+              label="Border color"
+              value={styles.borderColor ?? "#F97316"}
+              onChange={(v) => updateStyle("borderColor", v)}
+            />
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Attribution" />
+              <Input
+                type="text"
+                value={content.attribution ?? ""}
+                onChange={(e) => updateContent("attribution", e.target.value)}
+                placeholder="— Source name"
+                className="h-7 text-xs px-2"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CTA Button */}
+      {isCtaButton && (
+        <div className="px-3 py-3 border-b border-border">
+          <SectionHeader label="CTA Button" />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Button text" />
+              <Input
+                type="text"
+                value={content.text ?? ""}
+                onChange={(e) => updateContent("text", e.target.value)}
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="URL (optional)" />
+              <Input
+                type="text"
+                value={content.url ?? ""}
+                onChange={(e) => updateContent("url", e.target.value)}
+                placeholder="https://..."
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <ColorField
+              label="Background color"
+              value={styles.backgroundColor ?? "#F97316"}
+              onChange={(v) => updateStyle("backgroundColor", v)}
+            />
+            <ColorField
+              label="Text color"
+              value={styles.color ?? "#ffffff"}
+              onChange={(v) => updateStyle("color", v)}
+            />
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Font size" />
+              <Input
+                type="number"
+                min={10}
+                max={36}
+                value={styles.fontSize ?? 16}
+                onChange={(e) => updateStyle("fontSize", Number(e.target.value))}
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Border radius" />
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                value={styles.borderRadius ?? 8}
+                onChange={(e) => updateStyle("borderRadius", Number(e.target.value))}
+                className="h-7 text-xs px-2"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Embed */}
+      {isVideoEmbed && (
+        <div className="px-3 py-3 border-b border-border">
+          <SectionHeader label="Video Embed" />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="YouTube URL" />
+              <Input
+                type="text"
+                value={content.url ?? ""}
+                onChange={(e) => {
+                  const url = e.target.value
+                  const videoId = extractYouTubeId(url) ?? ""
+                  onUpdate({ content: { ...content, url, videoId, platform: "youtube" } })
+                }}
+                placeholder="https://youtube.com/watch?v=..."
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            {content.videoId && (
+              <p className="text-xs text-muted-foreground">
+                Video ID: <span className="font-mono">{content.videoId}</span>
+              </p>
+            )}
+            <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded px-2 py-1.5">
+              Video embeds appear in web preview only, not in PDF export.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Author Bio */}
+      {isAuthorBio && (
+        <div className="px-3 py-3 border-b border-border">
+          <SectionHeader label="Author Bio" />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Name" />
+              <Input
+                type="text"
+                value={content.name ?? ""}
+                onChange={(e) => updateContent("name", e.target.value)}
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Bio" />
+              <Input
+                type="text"
+                value={content.bio ?? ""}
+                onChange={(e) => updateContent("bio", e.target.value)}
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Photo URL" />
+              <Input
+                type="text"
+                value={content.src ?? ""}
+                onChange={(e) => updateContent("src", e.target.value)}
+                placeholder="https://..."
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <ColorField
+              label="Background color"
+              value={styles.backgroundColor ?? "#f9f9f9"}
+              onChange={(v) => updateStyle("backgroundColor", v)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Icon Element */}
+      {isIconElement && (
+        <div className="px-3 py-3 border-b border-border">
+          <SectionHeader label="Icon" />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <FieldLabel label="Search icons" />
+              <Input
+                type="text"
+                value={iconSearch}
+                onChange={(e) => setIconSearch(e.target.value)}
+                placeholder="Search..."
+                className="h-7 text-xs px-2"
+              />
+            </div>
+            <div className="grid grid-cols-6 gap-1 max-h-[160px] overflow-y-auto">
+              {filteredIcons.map((name) => {
+                const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ size?: number; className?: string }>>)[name]
+                if (!Icon) return null
+                const isActive = content.iconName === name
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => updateContent("iconName", name)}
+                    title={name}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded border transition-colors",
+                      isActive
+                        ? "bg-primary/20 border-primary"
+                        : "border-transparent hover:bg-muted/60 hover:border-border"
+                    )}
+                  >
+                    <Icon size={14} />
+                  </button>
+                )
+              })}
+            </div>
+            <ColorField
+              label="Icon color"
+              value={content.color ?? "#F97316"}
+              onChange={(v) => updateContent("color", v)}
+            />
+            <div className="flex flex-col gap-1">
+              <FieldLabel label={`Opacity: ${styles.opacity ?? 100}%`} />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={styles.opacity ?? 100}
+                onChange={(e) => updateStyle("opacity", Number(e.target.value))}
+                className="w-full h-2 accent-primary"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Appearance */}
-      {!isShape && !isTable && (
+      {!isShape && !isTable && !isCtaButton && !isVideoEmbed && !isAuthorBio && !isIconElement && !isBlockquote && (
         <div className="px-3 py-3 border-b border-border">
           <SectionHeader label="Appearance" />
           <div className="flex flex-col gap-2">
@@ -259,7 +518,6 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
         <div className="px-3 py-3 border-b border-border">
           <SectionHeader label="Shape" />
           <div className="flex flex-col gap-2">
-            {/* Shape type selector */}
             <div className="flex flex-col gap-1">
               <FieldLabel label="Shape type" />
               <div className="flex gap-1">
@@ -417,7 +675,16 @@ export function PropertiesPanel({ element, onUpdate, onDelete }: PropertiesPanel
       )}
 
       {/* Actions */}
-      <div className="px-3 py-3 mt-auto">
+      <div className="px-3 py-3 mt-auto flex flex-col gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("w-full gap-2 text-xs", isFaved && "text-yellow-500 border-yellow-500/50")}
+          onClick={saveToFavourites}
+        >
+          <Star className={cn("h-3.5 w-3.5", isFaved && "fill-yellow-500 text-yellow-500")} />
+          {isFaved ? "Saved to Favourites!" : "Save to Favourites"}
+        </Button>
         <Button
           variant="destructive"
           size="sm"

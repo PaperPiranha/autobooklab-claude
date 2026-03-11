@@ -10,6 +10,14 @@ export type ElementType =
   | "table"
   | "toc"
   | "shape"
+  // New types
+  | "blockquote"
+  | "ordered-list"
+  | "unordered-list"
+  | "cta-button"
+  | "video-embed"
+  | "author-bio"
+  | "icon-element"
 
 export interface ElementContent {
   text?: string
@@ -19,6 +27,15 @@ export interface ElementContent {
   rows?: string[][]          // for table: 2D array of cell text
   shapeType?: "rect" | "circle" | "line"  // for shape
   cols?: number              // for table: number of columns
+  attribution?: string       // for blockquote
+  items?: string[]           // for ordered-list / unordered-list
+  url?: string               // for cta-button, video-embed
+  videoId?: string           // for video-embed
+  platform?: string          // for video-embed
+  name?: string              // for author-bio
+  bio?: string               // for author-bio
+  iconName?: string          // for icon-element
+  color?: string             // for icon-element
 }
 
 export interface ElementStyles {

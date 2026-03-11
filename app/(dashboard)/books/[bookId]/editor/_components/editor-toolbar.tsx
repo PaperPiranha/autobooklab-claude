@@ -7,7 +7,6 @@ import {
   Loader2,
   Undo2,
   Redo2,
-  Sparkles,
   Download,
   ChevronDown,
 } from "lucide-react"
@@ -25,8 +24,6 @@ interface EditorToolbarProps {
   onExportPDF: () => void
   onExportEPUB: () => void
   isExporting: boolean
-  onToggleAI: () => void
-  aiOpen: boolean
 }
 
 export function EditorToolbar({
@@ -34,8 +31,6 @@ export function EditorToolbar({
   onExportPDF,
   onExportEPUB,
   isExporting,
-  onToggleAI,
-  aiOpen,
 }: EditorToolbarProps) {
   const { state, dispatch } = useEditor()
   const { saveStatus } = state
@@ -110,20 +105,6 @@ export function EditorToolbar({
         </button>
 
         <span className="w-px h-4 bg-border shrink-0" />
-
-        {/* AI toggle */}
-        <button
-          onClick={onToggleAI}
-          title="AI Assistant"
-          className={cn(
-            "p-1.5 rounded transition-colors",
-            aiOpen
-              ? "text-primary bg-primary/10"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-        >
-          <Sparkles className="h-4 w-4" />
-        </button>
 
         {/* Export dropdown */}
         <DropdownMenu>

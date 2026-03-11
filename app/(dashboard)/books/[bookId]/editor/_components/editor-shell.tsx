@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import { EditorProvider, useEditor, makeDefaultElement } from "./editor-context"
 import { EditorToolbar } from "./editor-toolbar"
-import { ElementsPanel } from "./elements-panel"
+import { LeftPanel } from "./left-panel"
 import { CanvasArea } from "./canvas-area"
 import { NavigatorPanel } from "./navigator-panel"
-import { EditorAIPanel } from "./editor-ai-panel"
 import { savePages } from "@/app/actions/pages"
 import type { EditorPage, ElementType } from "@/lib/editor/types"
 
@@ -20,6 +19,7 @@ interface BookInfo {
 interface EditorShellProps {
   book: BookInfo
   initialPages: EditorPage[]
+  userId?: string
 }
 
 function AutoSaveWatcher({ bookId }: { bookId: string }) {
@@ -27,7 +27,6 @@ function AutoSaveWatcher({ bookId }: { bookId: string }) {
   const prevPagesRef = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFirstRender = useRef(true)
-  // Keep a ref to latest pages for unmount flush
   const pagesRef = useRef(state.pages)
   pagesRef.current = state.pages
 
@@ -58,7 +57,6 @@ function AutoSaveWatcher({ bookId }: { bookId: string }) {
     }, 1500)
   }, [state.pages, bookId, dispatch])
 
-  // Flush on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -72,16 +70,14 @@ function AutoSaveWatcher({ bookId }: { bookId: string }) {
   return null
 }
 
-function EditorLayout({ book }: { book: BookInfo }) {
+function EditorLayout({ book, userId }: { book: BookInfo; userId?: string }) {
   const { dispatch } = useEditor()
-  const [aiOpen, setAiOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
   function handleAddElement(type: ElementType) {
     dispatch({ type: "ADD_ELEMENT", element: makeDefaultElement(type) })
   }
 
-  // Keyboard shortcuts for undo/redo
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey
@@ -136,29 +132,28 @@ function EditorLayout({ book }: { book: BookInfo }) {
         onExportPDF={handleExportPDF}
         onExportEPUB={handleExportEPUB}
         isExporting={isExporting}
-        onToggleAI={() => setAiOpen((o) => !o)}
-        aiOpen={aiOpen}
       />
       <div className="flex flex-1 min-h-0">
-        <ElementsPanel onAddElement={handleAddElement} />
+        <LeftPanel
+          onAddElement={handleAddElement}
+          bookId={book.id}
+          bookTitle={book.title}
+          bookGenre={book.genre}
+          bookDescription={book.description}
+          userId={userId}
+        />
         <CanvasArea bookId={book.id} />
-        {aiOpen && (
-          <EditorAIPanel
-            book={book}
-            onClose={() => setAiOpen(false)}
-          />
-        )}
         <NavigatorPanel />
       </div>
     </div>
   )
 }
 
-export function EditorShell({ book, initialPages }: EditorShellProps) {
+export function EditorShell({ book, initialPages, userId }: EditorShellProps) {
   return (
     <EditorProvider bookId={book.id} initialPages={initialPages}>
       <AutoSaveWatcher bookId={book.id} />
-      <EditorLayout book={book} />
+      <EditorLayout book={book} userId={userId} />
     </EditorProvider>
   )
 }
