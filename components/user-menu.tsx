@@ -12,13 +12,15 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
+import { PLANS, type Plan } from "@/lib/stripe"
 
 interface UserMenuProps {
   email: string
   avatarUrl?: string
+  plan?: Plan
 }
 
-export function UserMenu({ email, avatarUrl }: UserMenuProps) {
+export function UserMenu({ email, avatarUrl, plan = "free" }: UserMenuProps) {
   const initials = email
     .split("@")[0]
     .slice(0, 2)
@@ -41,7 +43,7 @@ export function UserMenu({ email, avatarUrl }: UserMenuProps) {
             <span className="text-xs font-medium truncate max-w-[140px] text-foreground">
               {email}
             </span>
-            <span className="text-[10px] text-muted-foreground">Free plan</span>
+            <span className="text-[10px] text-muted-foreground">{PLANS[plan].name} plan</span>
           </div>
         </Button>
       </DropdownMenuTrigger>
@@ -65,16 +67,12 @@ export function UserMenu({ email, avatarUrl }: UserMenuProps) {
           Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <form action={signOut} className="w-full">
-            <button
-              type="submit"
-              className="flex w-full items-center text-destructive focus:text-destructive"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </button>
-          </form>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive cursor-pointer"
+          onClick={() => signOut()}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

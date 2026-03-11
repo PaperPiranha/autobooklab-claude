@@ -59,7 +59,7 @@ export default async function ChapterPage({ params }: PageProps) {
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <span
               className="text-foreground font-medium"
-              style={{ fontFamily: "var(--font-instrument-serif)" }}
+              style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
             >
               {typedBook.title}
             </span>

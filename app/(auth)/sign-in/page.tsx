@@ -22,7 +22,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
         <div className="text-center">
           <h1
             className="text-2xl font-normal tracking-tight"
-            style={{ fontFamily: "var(--font-instrument-serif)" }}
+            style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
           >
             AutoBook<span className="text-primary">Lab</span>
           </h1>

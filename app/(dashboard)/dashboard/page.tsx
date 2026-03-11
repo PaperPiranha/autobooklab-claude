@@ -128,7 +128,7 @@ function BookCard({ book }: { book: Book }) {
         <div className="flex-1">
           <h3
             className="text-base font-normal leading-snug mb-1 group-hover:text-primary transition-colors"
-            style={{ fontFamily: "var(--font-instrument-serif)" }}
+            style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
           >
             {book.title}
           </h3>

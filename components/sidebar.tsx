@@ -19,14 +19,14 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20">
-            <BookOpen className="h-4 w-4 text-primary" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-white">
+            <BookOpen className="h-3.5 w-3.5" />
           </div>
           <span
-            className="text-[15px] font-normal text-foreground"
-            style={{ fontFamily: "var(--font-instrument-serif)" }}
+            className="text-[15px] font-semibold tracking-tight text-foreground"
+            style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
           >
-            AutoBook<span className="text-primary">Lab</span>
+            AutoBook<span className="text-primary font-bold">Lab</span>
           </span>
         </div>
         <ThemeToggle />

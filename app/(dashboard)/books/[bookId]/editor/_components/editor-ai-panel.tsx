@@ -23,20 +23,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { useEditor } from "./editor-context"
 
 type Tab = "write" | "images"
 type WriteAction = "generate" | "rewrite" | "summarize"
 
-interface Book {
+interface BookInfo {
+  id: string
   title: string
   genre: string
   description: string
-}
-
-interface Chapter {
-  id: string
-  title: string
-  content: string
 }
 
 interface UnsplashPhoto {
@@ -48,27 +44,41 @@ interface UnsplashPhoto {
   creditLink: string
 }
 
-interface AiPanelProps {
-  book: Book
-  chapter: Chapter
-  selectedText: string
-  onInsert: (text: string, replace?: boolean) => void
-  onInsertImage?: (src: string, alt: string, credit: string) => void
+interface EditorAIPanelProps {
+  book: BookInfo
   onClose: () => void
-  credits: number
-  onCreditsChange: (delta: number) => void
 }
 
-export function AiPanel({
-  book,
-  chapter,
-  selectedText,
-  onInsert,
-  onInsertImage,
-  onClose,
-  credits,
-  onCreditsChange,
-}: AiPanelProps) {
+const TEXT_ELEMENT_TYPES = new Set([
+  "text",
+  "heading",
+  "chapter-heading",
+  "callout",
+])
+
+function elementTypeLabel(type: string): string {
+  switch (type) {
+    case "text": return "Text Block"
+    case "heading": return "Heading"
+    case "chapter-heading": return "Chapter Heading"
+    case "callout": return "Callout"
+    case "image": return "Image"
+    case "captioned-image": return "Captioned Image"
+    default: return type
+  }
+}
+
+export function EditorAIPanel({ book, onClose }: EditorAIPanelProps) {
+  const { state, dispatch } = useEditor()
+  const { selectedElementId, pages, activePageId } = state
+
+  const activePage = pages.find((p) => p.id === activePageId)
+  const selectedElement = activePage?.elements.find((e) => e.id === selectedElementId) ?? null
+
+  const isTextElement = selectedElement ? TEXT_ELEMENT_TYPES.has(selectedElement.type) : false
+  const isImageElement =
+    selectedElement?.type === "image" || selectedElement?.type === "captioned-image"
+
   const [tab, setTab] = useState<Tab>("write")
   const [action, setAction] = useState<WriteAction>("generate")
   const [customPrompt, setCustomPrompt] = useState("")
@@ -82,8 +92,6 @@ export function AiPanel({
   const [imageTotalPages, setImageTotalPages] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  const creditCost = action === "generate" ? 2 : 1
-
   const {
     completion,
     complete,
@@ -91,7 +99,7 @@ export function AiPanel({
     stop,
     setCompletion,
   } = useCompletion({
-    api: action === "rewrite" ? "/api/ai/rewrite" : "/api/ai/generate",
+    api: "/api/ai/generate",
     streamProtocol: "text",
     onError: (err) => {
       try {
@@ -101,31 +109,38 @@ export function AiPanel({
         setApiError(err.message)
       }
     },
-    onFinish: () => {
-      onCreditsChange(-creditCost)
-    },
   })
 
   async function handleGenerate() {
     setApiError("")
-    if (action === "rewrite" && !selectedText.trim()) {
-      setApiError("Select text in the editor first.")
-      return
-    }
     setCompletion("")
     await complete("", {
-      body:
-        action === "rewrite"
-          ? { selectedText, instruction: customPrompt }
-          : {
-              action,
-              bookTitle: book.title,
-              chapterTitle: chapter.title,
-              genre: book.genre,
-              description: book.description,
-              chapterContent: chapter.content,
-              customPrompt,
-            },
+      body: {
+        action,
+        bookTitle: book.title,
+        chapterTitle:
+          selectedElement?.type === "chapter-heading"
+            ? (selectedElement.content.text ?? "")
+            : "Section",
+        genre: book.genre ?? "",
+        description: book.description ?? "",
+        chapterContent: selectedElement?.content.text ?? "",
+        customPrompt,
+      },
+    })
+  }
+
+  function handleInsert() {
+    if (!selectedElementId || !completion) return
+    dispatch({
+      type: "UPDATE_ELEMENT",
+      elementId: selectedElementId,
+      updates: {
+        content: {
+          ...(selectedElement?.content ?? {}),
+          text: completion,
+        },
+      },
     })
   }
 
@@ -134,7 +149,9 @@ export function AiPanel({
     setImageLoading(true)
     setImagePage(1)
     try {
-      const res = await fetch(`/api/images/search?q=${encodeURIComponent(imageQuery)}&page=1`)
+      const res = await fetch(
+        `/api/images/search?q=${encodeURIComponent(imageQuery)}&page=1`
+      )
       const data = await res.json()
       setImages(data.photos ?? [])
       setImageTotalPages(data.totalPages ?? 0)
@@ -147,7 +164,9 @@ export function AiPanel({
     const nextPage = imagePage + 1
     setLoadingMore(true)
     try {
-      const res = await fetch(`/api/images/search?q=${encodeURIComponent(imageQuery)}&page=${nextPage}`)
+      const res = await fetch(
+        `/api/images/search?q=${encodeURIComponent(imageQuery)}&page=${nextPage}`
+      )
       const data = await res.json()
       setImages((prev) => [...prev, ...(data.photos ?? [])])
       setImageTotalPages(data.totalPages ?? 0)
@@ -158,17 +177,24 @@ export function AiPanel({
   }
 
   function handleInsertImage(photo: UnsplashPhoto) {
-    if (onInsertImage) {
-      onInsertImage(photo.url, photo.description, photo.credit)
-    } else {
-      onInsert(`\n![${photo.description}](${photo.url})\n*Photo by ${photo.credit}*\n`)
-    }
+    if (!selectedElementId) return
+    dispatch({
+      type: "UPDATE_ELEMENT",
+      elementId: selectedElementId,
+      updates: {
+        content: {
+          ...(selectedElement?.content ?? {}),
+          src: photo.url,
+          alt: photo.description,
+        },
+      },
+    })
   }
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-sidebar-border bg-sidebar">
-      {/* Header tabs */}
-      <div className="flex items-center justify-between border-b border-sidebar-border px-3 py-2">
+    <aside className="w-[280px] shrink-0 border-l border-border bg-sidebar flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border px-3 py-2 shrink-0">
         <div className="flex gap-0.5 rounded-md bg-secondary p-0.5">
           <button
             onClick={() => setTab("write")}
@@ -208,18 +234,19 @@ export function AiPanel({
       {/* Write tab */}
       {tab === "write" && (
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
-          {/* Credits badge */}
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">AI credits remaining</span>
-            <span
-              className={cn(
-                "font-medium tabular-nums",
-                credits <= 2 ? "text-destructive" : "text-primary"
-              )}
-            >
-              {credits}
-            </span>
-          </div>
+          {/* Selected element info */}
+          {selectedElement && isTextElement ? (
+            <div className="text-xs text-muted-foreground bg-secondary/50 rounded px-2 py-1.5">
+              Editing:{" "}
+              <span className="text-foreground font-medium">
+                {elementTypeLabel(selectedElement.type)}
+              </span>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground bg-secondary/50 rounded px-2 py-1.5 italic">
+              Select a text element to use AI writing tools
+            </div>
+          )}
 
           {/* Action selector */}
           <div className="space-y-1.5">
@@ -236,43 +263,22 @@ export function AiPanel({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="generate">Generate draft (2 credits)</SelectItem>
-                <SelectItem value="rewrite">Rewrite selection (1 credit)</SelectItem>
-                <SelectItem value="summarize">Summarize chapter (1 credit)</SelectItem>
+                <SelectItem value="generate">Generate draft</SelectItem>
+                <SelectItem value="rewrite">Rewrite</SelectItem>
+                <SelectItem value="summarize">Summarize</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Rewrite: show selected text */}
-          {action === "rewrite" && (
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Selected text</label>
-              <div
-                className={cn(
-                  "min-h-[60px] rounded-md border px-3 py-2 text-xs leading-relaxed",
-                  selectedText.trim()
-                    ? "border-border bg-input text-foreground"
-                    : "border-border/50 bg-secondary text-muted-foreground italic"
-                )}
-              >
-                {selectedText.trim() || "Select text in the editor…"}
-              </div>
-            </div>
-          )}
-
           {/* Custom prompt */}
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">
-              {action === "rewrite" ? "How to rewrite? (optional)" : "Extra instructions (optional)"}
+              Extra instructions (optional)
             </label>
             <Textarea
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder={
-                action === "rewrite"
-                  ? "e.g. more concise, formal tone…"
-                  : "e.g. add examples, more conversational…"
-              }
+              placeholder="e.g. more concise, add examples…"
               rows={2}
               className="text-xs"
             />
@@ -289,7 +295,7 @@ export function AiPanel({
           {/* Generate button */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || credits < creditCost}
+            disabled={isGenerating || !isTextElement}
             size="sm"
             className="gap-1.5 w-full"
           >
@@ -301,8 +307,11 @@ export function AiPanel({
             ) : (
               <>
                 <Sparkles className="h-3.5 w-3.5" />
-                {action === "generate" ? "Generate" : action === "rewrite" ? "Rewrite" : "Summarize"}
-                <span className="ml-auto opacity-60 text-[10px]">{creditCost}cr</span>
+                {action === "generate"
+                  ? "Generate"
+                  : action === "rewrite"
+                  ? "Rewrite"
+                  : "Summarize"}
               </>
             )}
           </Button>
@@ -323,8 +332,11 @@ export function AiPanel({
                 )}
               </div>
               <div
-                className="min-h-[120px] max-h-[280px] overflow-y-auto rounded-md border border-border bg-background p-3 text-xs leading-relaxed text-foreground"
-                style={{ fontFamily: "var(--font-inter), system-ui, sans-serif", fontSize: "0.8125rem" }}
+                className="min-h-[100px] max-h-[240px] overflow-y-auto rounded-md border border-border bg-background p-3 text-xs leading-relaxed text-foreground"
+                style={{
+                  fontFamily: "var(--font-inter), system-ui, sans-serif",
+                  fontSize: "0.8125rem",
+                }}
               >
                 {completion}
                 {isGenerating && (
@@ -338,15 +350,11 @@ export function AiPanel({
                     size="sm"
                     variant="outline"
                     className="flex-1 gap-1.5 text-xs h-7"
-                    onClick={() =>
-                      onInsert(
-                        completion,
-                        action === "rewrite" && !!selectedText.trim()
-                      )
-                    }
+                    onClick={handleInsert}
+                    disabled={!isTextElement}
                   >
                     <CheckCheck className="h-3 w-3" />
-                    {action === "rewrite" && selectedText.trim() ? "Replace selection" : "Insert"}
+                    Insert
                   </Button>
                   <Button
                     size="sm"
@@ -377,6 +385,12 @@ export function AiPanel({
       {/* Images tab */}
       {tab === "images" && (
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
+          {!isImageElement && (
+            <div className="text-xs text-muted-foreground bg-secondary/50 rounded px-2 py-1.5 italic">
+              Select an image element to search photos
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Input
               value={imageQuery}
@@ -402,7 +416,10 @@ export function AiPanel({
 
           {!process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY && images.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">
-              Add <code className="bg-secondary px-1 rounded">NEXT_PUBLIC_UNSPLASH_ACCESS_KEY</code>{" "}
+              Add{" "}
+              <code className="bg-secondary px-1 rounded">
+                NEXT_PUBLIC_UNSPLASH_ACCESS_KEY
+              </code>{" "}
               to .env.local to enable image search.
             </p>
           )}
@@ -416,6 +433,7 @@ export function AiPanel({
                     onClick={() => handleInsertImage(photo)}
                     className="group relative aspect-video overflow-hidden rounded-md border border-border hover:border-primary/60 transition-colors"
                     title={`${photo.description} — by ${photo.credit}`}
+                    disabled={!isImageElement}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -435,21 +453,25 @@ export function AiPanel({
                   onClick={loadMoreImages}
                   disabled={loadingMore}
                 >
-                  {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                  {loadingMore ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : null}
                   {loadingMore ? "Loading…" : "Load more"}
                 </Button>
               )}
               <p className="text-[10px] text-muted-foreground text-center">
-                Photos from Unsplash. Click to insert into chapter.
+                Photos from Unsplash. Click to insert into element.
               </p>
             </>
           )}
 
           {images.length === 0 && imageQuery && !imageLoading && (
-            <p className="text-xs text-muted-foreground text-center py-4">No results found.</p>
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No results found.
+            </p>
           )}
         </div>
       )}
-    </div>
+    </aside>
   )
 }

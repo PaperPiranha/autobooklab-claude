@@ -61,6 +61,7 @@ export function ChapterEditor({
   )
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Image.configure({ HTMLAttributes: { class: "rounded-md" } }),
@@ -122,8 +123,10 @@ export function ChapterEditor({
     editor
       .chain()
       .focus()
-      .setImage({ src, alt })
-      .insertContent(`<p><em>Photo by ${credit}</em></p>`)
+      .insertContent([
+        { type: "image", attrs: { src, alt } },
+        { type: "paragraph", content: [{ type: "text", marks: [{ type: "italic" }], text: `Photo by ${credit}` }] },
+      ])
       .run()
   }
 
@@ -162,7 +165,7 @@ export function ChapterEditor({
           <div className="px-16 pt-10 pb-4">
             <h2
               className="text-3xl font-normal text-foreground"
-              style={{ fontFamily: "var(--font-instrument-serif)" }}
+              style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
             >
               {chapter.title}
             </h2>

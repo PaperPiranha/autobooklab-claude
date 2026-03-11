@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/sidebar"
 import { UserMenu } from "@/components/user-menu"
 import { MobileHeader } from "@/components/mobile-nav"
+import type { Plan } from "@/lib/stripe"
 
 export default async function DashboardLayout({
   children,
@@ -18,6 +19,14 @@ export default async function DashboardLayout({
     redirect("/sign-in")
   }
 
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("plan")
+    .eq("user_id", user.id)
+    .single()
+
+  const plan = (subscription?.plan ?? "free") as Plan
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background lg:flex-row">
       {/* Mobile top bar */}
@@ -27,7 +36,7 @@ export default async function DashboardLayout({
       <div className="hidden lg:flex lg:flex-col lg:h-full">
         <Sidebar />
         <div className="border-r border-sidebar-border bg-sidebar w-60 p-2 border-t border-t-sidebar-border">
-          <UserMenu email={user.email ?? ""} />
+          <UserMenu email={user.email ?? ""} plan={plan} />
         </div>
       </div>
 

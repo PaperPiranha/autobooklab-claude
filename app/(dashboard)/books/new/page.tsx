@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2, BookOpen, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { Plus, Trash2, BookOpen, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,6 +45,7 @@ export default function NewBookPage() {
   const [step, setStep] = useState(0)
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const [data, setData] = useState<WizardData>({
     title: "",
@@ -90,6 +91,32 @@ export default function NewBookPage() {
 
   function removeChapter(i: number) {
     setData((d) => ({ ...d, chapters: d.chapters.filter((_, idx) => idx !== i) }))
+  }
+
+  async function generateOutline() {
+    setIsGenerating(true)
+    setError("")
+    try {
+      const res = await fetch("/api/ai/outline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title,
+          genre: data.genre,
+          description: data.description,
+        }),
+      })
+      const json = await res.json()
+      if (json.error) {
+        setError(json.error)
+      } else if (Array.isArray(json.chapters) && json.chapters.length > 0) {
+        setData((d) => ({ ...d, chapters: json.chapters }))
+      }
+    } catch {
+      setError("Failed to generate outline. Please try again.")
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   function updateChapter(i: number, value: string) {
@@ -160,7 +187,7 @@ export default function NewBookPage() {
               <div>
                 <h2
                   className="text-2xl font-normal mb-1"
-                  style={{ fontFamily: "var(--font-instrument-serif)" }}
+                  style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
                 >
                   What&apos;s your book called?
                 </h2>
@@ -204,7 +231,7 @@ export default function NewBookPage() {
               <div>
                 <h2
                   className="text-2xl font-normal mb-1"
-                  style={{ fontFamily: "var(--font-instrument-serif)" }}
+                  style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
                 >
                   What&apos;s it about?
                 </h2>
@@ -232,7 +259,7 @@ export default function NewBookPage() {
               <div>
                 <h2
                   className="text-2xl font-normal mb-1"
-                  style={{ fontFamily: "var(--font-instrument-serif)" }}
+                  style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
                 >
                   Plan your chapters
                 </h2>
@@ -240,6 +267,29 @@ export default function NewBookPage() {
                   Add your chapter titles. You can edit and reorder them later.
                 </p>
               </div>
+
+              {/* AI generate button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+                onClick={generateOutline}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Generating outline…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate outline with AI
+                  </>
+                )}
+              </Button>
+
               <div className="space-y-2">
                 {data.chapters.map((chapter, i) => (
                   <div key={i} className="flex items-center gap-2">

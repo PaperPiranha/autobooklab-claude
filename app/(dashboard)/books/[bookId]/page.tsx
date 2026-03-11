@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Trash2, Download } from "lucide-react"
+import { ArrowLeft, Trash2, Download, LayoutGrid } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -67,7 +67,7 @@ export default async function BookPage({ params }: PageProps) {
             <div className="flex items-center gap-2 mb-1">
               <h1
                 className="text-2xl font-normal"
-                style={{ fontFamily: "var(--font-instrument-serif)" }}
+                style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
               >
                 {typedBook.title}
               </h1>
@@ -89,17 +89,25 @@ export default async function BookPage({ params }: PageProps) {
           </div>
         </div>
 
-        <form action={deleteBook.bind(null, bookId)}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-destructive gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Delete book</span>
+        <div className="flex items-center gap-2">
+          <Button variant="default" size="sm" className="gap-2" asChild>
+            <Link href={`/books/${bookId}/editor`}>
+              <LayoutGrid className="h-4 w-4" />
+              <span>Visual Editor</span>
+            </Link>
           </Button>
-        </form>
+          <form action={deleteBook.bind(null, bookId)}>
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-destructive gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Delete book</span>
+            </Button>
+          </form>
+        </div>
       </header>
 
       {/* Main content */}

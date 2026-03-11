@@ -71,7 +71,7 @@ export default function OnboardingPage() {
       <div className="text-center mb-12">
         <h1
           className="text-4xl font-normal tracking-tight mb-3"
-          style={{ fontFamily: "var(--font-instrument-serif)" }}
+          style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
         >
           Choose your plan
         </h1>
