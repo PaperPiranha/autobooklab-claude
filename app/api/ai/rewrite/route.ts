@@ -1,6 +1,8 @@
 import { streamText } from "ai"
 import { createAnthropic } from "@ai-sdk/anthropic"
 import { createClient } from "@/lib/supabase/server"
+import { checkAiRateLimit } from "@/lib/rate-limit"
+import { validateLength, INPUT_LIMITS, isEmailVerified, sanitizePromptInput } from "@/lib/plans"
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -8,6 +10,15 @@ export async function POST(req: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
+
+  // Require email verification before AI usage
+  if (!isEmailVerified(user)) {
+    return Response.json({ error: "Please verify your email before using AI features." }, { status: 403 })
+  }
+
+  // Rate limit
+  const rateLimited = checkAiRateLimit(user.id)
+  if (rateLimited) return rateLimited
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return Response.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 })
@@ -17,6 +28,16 @@ export async function POST(req: Request) {
 
   if (!selectedText?.trim()) {
     return Response.json({ error: "No text selected" }, { status: 400 })
+  }
+
+  // Input validation
+  const validationErrors = [
+    validateLength(selectedText, "Selected text", INPUT_LIMITS.selectedText),
+    validateLength(instruction, "Instruction", INPUT_LIMITS.instruction),
+  ].filter(Boolean)
+
+  if (validationErrors.length > 0) {
+    return Response.json({ error: validationErrors[0] }, { status: 400 })
   }
 
   const { data: spent } = await supabase.rpc("spend_credit", {
@@ -35,10 +56,10 @@ export async function POST(req: Request) {
     model: anthropicProvider("claude-sonnet-4-6"),
     system:
       "You are a professional editor. Rewrite the given text as instructed. Return ONLY the rewritten text — no preamble, no explanation.",
-    prompt: `Rewrite the following text${instruction ? ` to ${instruction}` : " to improve clarity and flow"}. Keep approximately the same length.
+    prompt: `Rewrite the following text${instruction ? ` to ${sanitizePromptInput(instruction)}` : " to improve clarity and flow"}. Keep approximately the same length.
 
 Text to rewrite:
-${selectedText}`,
+${sanitizePromptInput(selectedText)}`,
     maxOutputTokens: 1000,
   })
 

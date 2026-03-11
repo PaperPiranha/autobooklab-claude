@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import { generateText } from "ai"
 import { anthropic } from "@ai-sdk/anthropic"
 import type { EditorPage } from "@/lib/editor/types"
+import { checkAiRateLimit } from "@/lib/rate-limit"
+import { isEmailVerified } from "@/lib/plans"
 
 export const runtime = "nodejs"
 
@@ -16,6 +18,20 @@ function now() {
 interface ChapterSeed {
   title: string
   body: string
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
 }
 
 function buildCoverPage(bookId: string, title: string, subtitle: string): EditorPage {
@@ -270,6 +286,26 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser()
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
+    // Require email verification before AI usage
+    if (!isEmailVerified(user)) {
+      return Response.json({ error: "Please verify your email before using AI features." }, { status: 403 })
+    }
+
+    // Rate limit
+    const rateLimited = checkAiRateLimit(user.id)
+    if (rateLimited) return rateLimited
+
+    // Charge 3 credits for seed-pages (makes multiple AI calls)
+    const { data: spent } = await supabase.rpc("spend_credit", {
+      p_user_id: user.id,
+      p_amount: 3,
+      p_action: "seed-pages",
+    })
+
+    if (!spent) {
+      return Response.json({ error: "Insufficient credits" }, { status: 402 })
+    }
+
     // Fetch book + chapters in parallel
     const [{ data: book }, { data: chapters }] = await Promise.all([
       supabase
@@ -349,9 +385,9 @@ Return a JSON object mapping chapter title to opening paragraph text only (no ma
       chapterSeeds = chapterList.map((c) => ({
         title: c.title,
         body:
-          c.content?.trim() ||
+          (c.content?.trim() ? stripHtml(c.content) : null) ||
           aiContent[c.title] ||
-          `<p>Begin writing your content for <strong>${c.title}</strong> here.</p>`,
+          `Begin writing your content for "${c.title}" here.`,
       }))
     }
 

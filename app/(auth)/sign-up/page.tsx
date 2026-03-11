@@ -1,9 +1,6 @@
 import Link from "next/link"
 import { BookOpen } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { signUp } from "@/app/actions/auth"
+import { SignUpForm } from "./_components/sign-up-form"
 
 interface PageProps {
   searchParams: Promise<{ error?: string; message?: string }>
@@ -45,36 +42,7 @@ export default async function SignUpPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        <form action={signUp} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Min. 8 characters"
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
-          </div>
-
-          <Button type="submit" className="w-full font-medium">
-            Create account
-          </Button>
-        </form>
+        <SignUpForm />
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
           By signing up you agree to our{" "}

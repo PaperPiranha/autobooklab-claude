@@ -49,6 +49,7 @@ export function ChapterEditor({
   const [credits, setCredits] = useState(initialCredits)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestContentRef = useRef(chapter.content)
+  const latestWordCountRef = useRef(chapter.word_count)
 
   const save = useCallback(
     async (html: string, wordCount: number) => {
@@ -79,6 +80,7 @@ export function ChapterEditor({
       const html = ed.getHTML()
       const wc = ed.storage.characterCount.words() as number
       latestContentRef.current = html
+      latestWordCountRef.current = wc
       setSaveStatus("unsaved")
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => save(html, wc), 1500)
@@ -91,8 +93,7 @@ export function ChapterEditor({
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
         if (latestContentRef.current !== chapter.content) {
-          const wc = editor?.storage?.characterCount?.words?.() ?? 0
-          save(latestContentRef.current, wc)
+          save(latestContentRef.current, latestWordCountRef.current)
         }
       }
     }

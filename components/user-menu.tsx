@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { LogOut, Settings, User } from "lucide-react"
 import {
   DropdownMenu,
@@ -58,13 +59,17 @@ export function UserMenu({ email, avatarUrl, plan = "free" }: UserMenuProps) {
           {email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <User className="mr-2 h-4 w-4" />
-          Profile
+        <DropdownMenuItem asChild>
+          <Link href="/profile" className="cursor-pointer">
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem>
-          <Settings className="mr-2 h-4 w-4" />
-          Settings
+        <DropdownMenuItem asChild>
+          <Link href="/settings" className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

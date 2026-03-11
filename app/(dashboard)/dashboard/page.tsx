@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/server"
 import { BillingCard } from "./_components/billing-card"
+import { BrowseTemplatesModal } from "./_components/browse-templates-modal"
 import type { Book } from "@/lib/types"
 import type { Plan } from "@/lib/stripe"
 
@@ -176,10 +177,12 @@ function EmptyState() {
             Create your first book
           </Link>
         </Button>
-        <Button variant="outline" className="gap-2" disabled>
-          <Sparkles className="h-4 w-4" />
-          Browse templates
-        </Button>
+        <BrowseTemplatesModal>
+          <Button variant="outline" className="gap-2">
+            <Sparkles className="h-4 w-4" />
+            Browse templates
+          </Button>
+        </BrowseTemplatesModal>
       </div>
     </div>
   )

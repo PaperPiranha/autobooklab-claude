@@ -1,6 +1,8 @@
 import { EPub } from "epub-gen-memory"
 import { createClient } from "@/lib/supabase/server"
 import type { EditorPage, PageElement } from "@/lib/editor/types"
+import { checkRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { getUserPlanFeatures, checkExportLimit, recordExport } from "@/lib/plans"
 
 export const runtime = "nodejs"
 
@@ -129,6 +131,28 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser()
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
+    // Rate limit
+    const rateLimited = checkRouteRateLimit(user.id, "export", RATE_LIMITS.export)
+    if (rateLimited) return rateLimited
+
+    // Feature gate: ePub export requires Starter+
+    const { features } = await getUserPlanFeatures(user.id)
+    if (!features.exports.includes("epub")) {
+      return Response.json(
+        { error: "ePub export is available on Starter plan and above. Please upgrade." },
+        { status: 403 }
+      )
+    }
+
+    // Export metering
+    const exportCheck = await checkExportLimit(user.id)
+    if (!exportCheck.allowed) {
+      return Response.json(
+        { error: `Monthly export limit reached (${exportCheck.used}/${exportCheck.limit}). Please upgrade your plan.` },
+        { status: 403 }
+      )
+    }
+
     const [{ data: book }, { data: pagesData }] = await Promise.all([
       supabase
         .from("books")
@@ -240,6 +264,9 @@ export async function POST(req: Request) {
         })
       }
     }
+
+    // Record export for metering
+    await recordExport(user.id, "epub")
 
     return Response.json({
       url: signed?.signedUrl,

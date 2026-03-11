@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import { Document, Page, View, Text, Image as PDFImage, pdf } from "@react-pdf/renderer"
 import type { EditorPage, PageElement } from "@/lib/editor/types"
 import React from "react"
+import { checkRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { checkExportLimit, recordExport } from "@/lib/plans"
 
 export const runtime = "nodejs"
 
@@ -204,6 +206,19 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser()
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
+    // Rate limit
+    const rateLimited = checkRouteRateLimit(user.id, "export", RATE_LIMITS.export)
+    if (rateLimited) return rateLimited
+
+    // Export metering
+    const exportCheck = await checkExportLimit(user.id)
+    if (!exportCheck.allowed) {
+      return Response.json(
+        { error: `Monthly export limit reached (${exportCheck.used}/${exportCheck.limit}). Please upgrade your plan.` },
+        { status: 403 }
+      )
+    }
+
     // Fetch book
     const { data: book } = await supabase
       .from("books")
@@ -298,6 +313,9 @@ export async function POST(req: Request) {
         })
       }
     }
+
+    // Record export for metering
+    await recordExport(user.id, "pdf")
 
     return Response.json({
       url: signed?.signedUrl,

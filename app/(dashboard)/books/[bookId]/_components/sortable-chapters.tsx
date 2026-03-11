@@ -127,11 +127,17 @@ function SortableChapterRow({
       {/* Title + meta */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{chapter.title}</p>
-        {chapter.word_count > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {chapter.word_count.toLocaleString()} words
-          </p>
-        )}
+        {(() => {
+          const wc =
+            chapter.word_count ||
+            (() => {
+              const s = chapter.content.replace(/<[^>]+>/g, " ").trim()
+              return s ? s.split(/\s+/).filter(Boolean).length : 0
+            })()
+          return wc > 0 ? (
+            <p className="text-xs text-muted-foreground">{wc.toLocaleString()} words</p>
+          ) : null
+        })()}
       </div>
 
       {/* Actions */}
