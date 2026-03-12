@@ -1,12 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Trash2, AlignLeft, AlignCenter, AlignRight, Star } from "lucide-react"
+import {
+  Trash2, AlignLeft, AlignCenter, AlignRight, Star,
+  Lock, Unlock,
+  ArrowUpToLine, ArrowUp, ArrowDown, ArrowDownToLine,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { PageElement } from "@/lib/editor/types"
 import { extractYouTubeId } from "./renderers/video-embed-element"
+import { useEditor } from "./editor-context"
 import * as LucideIcons from "lucide-react"
 
 interface PropertiesPanelProps {
@@ -48,7 +53,29 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 const TEXT_TYPES = new Set(["text", "heading", "chapter-heading", "callout", "page-number"])
 const IMAGE_TYPES = new Set(["image", "captioned-image"])
 
+const TYPE_LABELS: Record<string, string> = {
+  text: "Text",
+  heading: "Heading",
+  "chapter-heading": "Chapter Heading",
+  image: "Image",
+  "captioned-image": "Captioned Image",
+  divider: "Divider",
+  callout: "Callout",
+  "page-number": "Page Number",
+  table: "Table",
+  toc: "Table of Contents",
+  shape: "Shape",
+  blockquote: "Blockquote",
+  "ordered-list": "Ordered List",
+  "unordered-list": "Unordered List",
+  "cta-button": "CTA Button",
+  "video-embed": "Video Embed",
+  "author-bio": "Author Bio",
+  "icon-element": "Icon",
+}
+
 export function PropertiesPanel({ element, onUpdate, onDelete, userId }: PropertiesPanelProps) {
+  const { dispatch } = useEditor()
   const { styles, content } = element
   const isTextType = TEXT_TYPES.has(element.type)
   const isImageType = IMAGE_TYPES.has(element.type)
@@ -106,6 +133,25 @@ export function PropertiesPanel({ element, onUpdate, onDelete, userId }: Propert
 
   return (
     <div className="flex flex-col h-full overflow-y-auto text-sm">
+      {/* Element type header + lock toggle */}
+      <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
+        <span className="text-xs font-semibold text-foreground">
+          {TYPE_LABELS[element.type] ?? element.type}
+        </span>
+        <button
+          onClick={() => onUpdate({ locked: !element.locked })}
+          title={element.locked ? "Unlock element (Cmd+L)" : "Lock element (Cmd+L)"}
+          className={cn(
+            "p-1 rounded transition-colors",
+            element.locked
+              ? "text-primary bg-primary/10"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+        >
+          {element.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+
       {/* Position & Size */}
       <div className="px-3 py-3 border-b border-border">
         <SectionHeader label="Position & Size" />
@@ -150,6 +196,41 @@ export function PropertiesPanel({ element, onUpdate, onDelete, userId }: Propert
               className="h-7 text-xs px-2"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Layer (z-index) controls */}
+      <div className="px-3 py-3 border-b border-border">
+        <SectionHeader label="Layer" />
+        <div className="flex gap-1">
+          <button
+            onClick={() => dispatch({ type: "SEND_TO_BACK", elementId: element.id })}
+            title="Send to Back"
+            className="flex-1 flex items-center justify-center h-7 rounded border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowDownToLine className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => dispatch({ type: "SEND_BACKWARD", elementId: element.id })}
+            title="Send Backward (Cmd+[)"
+            className="flex-1 flex items-center justify-center h-7 rounded border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => dispatch({ type: "BRING_FORWARD", elementId: element.id })}
+            title="Bring Forward (Cmd+])"
+            className="flex-1 flex items-center justify-center h-7 rounded border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => dispatch({ type: "BRING_TO_FRONT", elementId: element.id })}
+            title="Bring to Front"
+            className="flex-1 flex items-center justify-center h-7 rounded border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowUpToLine className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 

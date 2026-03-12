@@ -71,6 +71,8 @@ export interface PageElement {
   locked?: boolean
 }
 
+export type PageType = "cover" | "content" | "back-cover"
+
 export interface EditorPage {
   id: string
   bookId: string
@@ -78,6 +80,8 @@ export interface EditorPage {
   name: string
   backgroundColor: string
   elements: PageElement[]
+  isCover?: boolean
+  pageType?: PageType
   createdAt: string
   updatedAt: string
 }

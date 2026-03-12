@@ -8,7 +8,7 @@ import { TextStyle } from "@tiptap/extension-text-style"
 import { Color } from "@tiptap/extension-color"
 import Underline from "@tiptap/extension-underline"
 import Placeholder from "@tiptap/extension-placeholder"
-import { Image as ImageIcon } from "lucide-react"
+import { Image as ImageIcon, Lock as LockIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PageElement } from "@/lib/editor/types"
 import { PAGE_W, PAGE_H } from "@/lib/editor/types"
@@ -22,19 +22,24 @@ import { CtaButtonElement } from "./renderers/cta-button-element"
 import { VideoEmbedElement } from "./renderers/video-embed-element"
 import { AuthorBioElement } from "./renderers/author-bio-element"
 import { IconElement } from "./renderers/icon-element"
+import { FloatingToolbar } from "./floating-toolbar"
 import { useEditor } from "./editor-context"
+import { findAlignmentGuides, applySnap, type AlignmentGuide } from "@/lib/editor/snap"
 
 type HandleDir = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
 
+const HANDLE_SIZE = 12 // px
+const HANDLE_OFFSET = -(HANDLE_SIZE / 2)
+
 const HANDLE_POSITIONS: Record<HandleDir, { top: string; left: string; cursor: string }> = {
-  nw: { top: "-4px", left: "-4px", cursor: "nwse-resize" },
-  n:  { top: "-4px", left: "calc(50% - 4px)", cursor: "ns-resize" },
-  ne: { top: "-4px", left: "calc(100% - 4px)", cursor: "nesw-resize" },
-  e:  { top: "calc(50% - 4px)", left: "calc(100% - 4px)", cursor: "ew-resize" },
-  se: { top: "calc(100% - 4px)", left: "calc(100% - 4px)", cursor: "nwse-resize" },
-  s:  { top: "calc(100% - 4px)", left: "calc(50% - 4px)", cursor: "ns-resize" },
-  sw: { top: "calc(100% - 4px)", left: "-4px", cursor: "nesw-resize" },
-  w:  { top: "calc(50% - 4px)", left: "-4px", cursor: "ew-resize" },
+  nw: { top: `${HANDLE_OFFSET}px`, left: `${HANDLE_OFFSET}px`, cursor: "nwse-resize" },
+  n:  { top: `${HANDLE_OFFSET}px`, left: `calc(50% + ${HANDLE_OFFSET}px)`, cursor: "ns-resize" },
+  ne: { top: `${HANDLE_OFFSET}px`, left: `calc(100% + ${HANDLE_OFFSET}px)`, cursor: "nesw-resize" },
+  e:  { top: `calc(50% + ${HANDLE_OFFSET}px)`, left: `calc(100% + ${HANDLE_OFFSET}px)`, cursor: "ew-resize" },
+  se: { top: `calc(100% + ${HANDLE_OFFSET}px)`, left: `calc(100% + ${HANDLE_OFFSET}px)`, cursor: "nwse-resize" },
+  s:  { top: `calc(100% + ${HANDLE_OFFSET}px)`, left: `calc(50% + ${HANDLE_OFFSET}px)`, cursor: "ns-resize" },
+  sw: { top: `calc(100% + ${HANDLE_OFFSET}px)`, left: `${HANDLE_OFFSET}px`, cursor: "nesw-resize" },
+  w:  { top: `calc(50% + ${HANDLE_OFFSET}px)`, left: `${HANDLE_OFFSET}px`, cursor: "ew-resize" },
 }
 
 const MIN_W = 40
@@ -48,6 +53,8 @@ interface ElementBlockProps {
   isNavigator?: boolean
   onSelect: () => void
   onUpdate: (updates: Partial<PageElement>) => void
+  onGuidesChange?: (guides: AlignmentGuide[]) => void
+  allElements?: PageElement[]
 }
 
 // ─── TipTap text block ───────────────────────────────────────────────────────
@@ -201,19 +208,24 @@ export function ElementBlock({
   isNavigator = false,
   onSelect,
   onUpdate,
+  onGuidesChange,
+  allElements,
 }: ElementBlockProps) {
-  const { state } = useEditor()
+  const { state, dispatch } = useEditor()
+  const zoom = state.zoom ?? 1
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ x: 0, y: 0, mouseX: 0, mouseY: 0 })
   const isResizingRef = useRef(false)
   const resizeStartRef = useRef({ x: 0, y: 0, w: 0, h: 0, mouseX: 0, mouseY: 0, dir: "" as HandleDir })
+  const [dragDims, setDragDims] = useState<{ x: number; y: number } | null>(null)
+  const [resizeDims, setResizeDims] = useState<{ w: number; h: number } | null>(null)
+  const [isEditingText, setIsEditingText] = useState(false)
 
   // ─── Move drag ─────────────────────────────────────────────────────────────
   const handleMoveMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (isNavigator || element.locked) return
       if ((e.target as HTMLElement).dataset.handle) return
-      // Don't start drag when inside TipTap editor
       const target = e.target as HTMLElement
       if (target.closest(".ProseMirror")) return
       e.preventDefault()
@@ -228,17 +240,30 @@ export function ElementBlock({
         mouseY: e.clientY,
       }
 
+      const others = (allElements ?? []).filter((el) => el.id !== element.id)
+
       function onMouseMove(ev: MouseEvent) {
         if (!isDraggingRef.current) return
-        const dx = ev.clientX - dragStartRef.current.mouseX
-        const dy = ev.clientY - dragStartRef.current.mouseY
-        const newX = Math.max(0, Math.min(PAGE_W - element.w, dragStartRef.current.x + dx))
-        const newY = Math.max(0, Math.min(PAGE_H - element.h, dragStartRef.current.y + dy))
+        const dx = (ev.clientX - dragStartRef.current.mouseX) / zoom
+        const dy = (ev.clientY - dragStartRef.current.mouseY) / zoom
+        let newX = Math.max(0, Math.min(PAGE_W - element.w, dragStartRef.current.x + dx))
+        let newY = Math.max(0, Math.min(PAGE_H - element.h, dragStartRef.current.y + dy))
+
+        // Alignment guides & snap
+        const guides = findAlignmentGuides({ x: newX, y: newY, w: element.w, h: element.h }, others)
+        const snapped = applySnap({ x: newX, y: newY }, element.w, element.h, guides)
+        newX = snapped.x
+        newY = snapped.y
+
+        onGuidesChange?.(guides)
+        setDragDims({ x: Math.round(newX), y: Math.round(newY) })
         onUpdate({ x: newX, y: newY })
       }
 
       function onMouseUp() {
         isDraggingRef.current = false
+        onGuidesChange?.([])
+        setDragDims(null)
         document.removeEventListener("mousemove", onMouseMove)
         document.removeEventListener("mouseup", onMouseUp)
       }
@@ -246,7 +271,7 @@ export function ElementBlock({
       document.addEventListener("mousemove", onMouseMove)
       document.addEventListener("mouseup", onMouseUp)
     },
-    [element, isNavigator, onSelect, onUpdate]
+    [element, isNavigator, onSelect, onUpdate, zoom, allElements, onGuidesChange]
   )
 
   // ─── Resize drag ───────────────────────────────────────────────────────────
@@ -269,8 +294,8 @@ export function ElementBlock({
 
       function onMouseMove(ev: MouseEvent) {
         if (!isResizingRef.current) return
-        const dx = ev.clientX - resizeStartRef.current.mouseX
-        const dy = ev.clientY - resizeStartRef.current.mouseY
+        const dx = (ev.clientX - resizeStartRef.current.mouseX) / zoom
+        const dy = (ev.clientY - resizeStartRef.current.mouseY) / zoom
         const s = resizeStartRef.current
 
         let { x, y, w, h } = s
@@ -293,11 +318,13 @@ export function ElementBlock({
         w = Math.min(w, PAGE_W - x)
         h = Math.min(h, PAGE_H - y)
 
+        setResizeDims({ w: Math.round(w), h: Math.round(h) })
         onUpdate({ x, y, w, h })
       }
 
       function onMouseUp() {
         isResizingRef.current = false
+        setResizeDims(null)
         document.removeEventListener("mousemove", onMouseMove)
         document.removeEventListener("mouseup", onMouseUp)
       }
@@ -305,7 +332,7 @@ export function ElementBlock({
       document.addEventListener("mousemove", onMouseMove)
       document.addEventListener("mouseup", onMouseUp)
     },
-    [element, isNavigator, onUpdate]
+    [element, isNavigator, onUpdate, zoom]
   )
 
   // ─── Content rendering ─────────────────────────────────────────────────────
@@ -462,8 +489,9 @@ export function ElementBlock({
   return (
     <div
       className={cn(
-        "absolute select-none",
+        "absolute select-none group/el",
         !isNavigator && !element.locked && "cursor-move",
+        !isNavigator && element.locked && "cursor-default",
         isSelected && "outline outline-2 outline-primary outline-offset-0"
       )}
       style={{
@@ -481,8 +509,47 @@ export function ElementBlock({
     >
       {contentNode}
 
+      {/* Lock indicator */}
+      {element.locked && !isNavigator && (
+        <div className="absolute top-1 right-1 p-0.5 bg-black/50 rounded z-50">
+          <LockIcon className="h-3 w-3 text-white/70" />
+        </div>
+      )}
+
+      {/* Floating toolbar — shown when selected and not editing text */}
+      {isSelected && !isNavigator && !isEditingText && (
+        <FloatingToolbar
+          element={element}
+          onDuplicate={() => dispatch({ type: "DUPLICATE_ELEMENT", elementId: element.id })}
+          onDelete={() => dispatch({ type: "DELETE_ELEMENT", elementId: element.id })}
+          onToggleLock={() => dispatch({ type: "UPDATE_ELEMENT", elementId: element.id, updates: { locked: !element.locked } })}
+          onBringForward={() => dispatch({ type: "BRING_FORWARD", elementId: element.id })}
+          onSendBackward={() => dispatch({ type: "SEND_BACKWARD", elementId: element.id })}
+        />
+      )}
+
+      {/* Dimension tooltip during drag */}
+      {dragDims && !isNavigator && (
+        <div
+          className="absolute z-50 pointer-events-none px-1.5 py-0.5 bg-black/80 text-white text-[10px] font-mono rounded whitespace-nowrap"
+          style={{ bottom: -22, left: "50%", transform: "translateX(-50%)" }}
+        >
+          {dragDims.x}, {dragDims.y}
+        </div>
+      )}
+
+      {/* Dimension tooltip during resize */}
+      {resizeDims && !isNavigator && (
+        <div
+          className="absolute z-50 pointer-events-none px-1.5 py-0.5 bg-black/80 text-white text-[10px] font-mono rounded whitespace-nowrap"
+          style={{ bottom: -22, left: "50%", transform: "translateX(-50%)" }}
+        >
+          {resizeDims.w} x {resizeDims.h}
+        </div>
+      )}
+
       {/* Resize handles */}
-      {isSelected && !isNavigator && (
+      {isSelected && !isNavigator && !element.locked && (
         <>
           {(Object.keys(HANDLE_POSITIONS) as HandleDir[]).map((dir) => {
             const pos = HANDLE_POSITIONS[dir]
@@ -490,7 +557,7 @@ export function ElementBlock({
               <div
                 key={dir}
                 data-handle={dir}
-                className="absolute w-2 h-2 bg-primary border border-white rounded-sm z-50"
+                className="absolute w-3 h-3 bg-primary border border-white rounded-sm z-50"
                 style={{
                   top: pos.top,
                   left: pos.left,

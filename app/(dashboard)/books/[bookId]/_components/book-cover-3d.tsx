@@ -25,9 +25,10 @@ interface BookCover3DProps {
 
 export function BookCover3D({ book }: BookCover3DProps) {
   const [dark, light] = GENRE_COLORS[book.genre] ?? DEFAULT_COLORS
+  const hasCover = !!book.cover_image_url
 
   // Truncate title for cover display
-  const displayTitle = book.title.length > 40 ? book.title.slice(0, 37) + "…" : book.title
+  const displayTitle = book.title.length > 40 ? book.title.slice(0, 37) + "\u2026" : book.title
 
   const COVER_W = 128  // px
   const COVER_H = 176  // px
@@ -47,70 +48,86 @@ export function BookCover3D({ book }: BookCover3DProps) {
           transform: "rotateY(-28deg) rotateX(4deg)",
         }}
       >
-        {/* ── Front cover ───────────────────────────────── */}
+        {/* Front cover */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "0 3px 3px 0",
-            background: `linear-gradient(150deg, ${light} 0%, ${dark} 100%)`,
+            background: hasCover ? undefined : `linear-gradient(150deg, ${light} 0%, ${dark} 100%)`,
             boxShadow: "6px 8px 28px rgba(0,0,0,0.45)",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            padding: "14px 12px",
+            padding: hasCover ? 0 : "14px 12px",
             overflow: "hidden",
           }}
         >
-          {/* Top decoration */}
-          <div>
-            {book.genre && (
-              <span
-                style={{
-                  fontSize: 8,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.65)",
-                  display: "block",
-                  marginBottom: 8,
-                }}
-              >
-                {book.genre}
-              </span>
-            )}
-            {/* Decorative line */}
-            <div style={{ width: 24, height: 1.5, backgroundColor: "rgba(255,255,255,0.4)", borderRadius: 2 }} />
-          </div>
-
-          {/* Title */}
-          <div>
-            <p
+          {hasCover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={book.cover_image_url!}
+              alt={book.title}
               style={{
-                fontSize: displayTitle.length > 25 ? 10 : 12,
-                fontWeight: 700,
-                color: "white",
-                lineHeight: 1.3,
-                wordBreak: "break-word",
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: "0 3px 3px 0",
               }}
-            >
-              {displayTitle}
-            </p>
-          </div>
+            />
+          ) : (
+            <>
+              {/* Top decoration */}
+              <div>
+                {book.genre && (
+                  <span
+                    style={{
+                      fontSize: 8,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "rgba(255,255,255,0.65)",
+                      display: "block",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {book.genre}
+                  </span>
+                )}
+                {/* Decorative line */}
+                <div style={{ width: 24, height: 1.5, backgroundColor: "rgba(255,255,255,0.4)", borderRadius: 2 }} />
+              </div>
 
-          {/* Bottom shimmer stripe */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 28,
-              background: "linear-gradient(to top, rgba(0,0,0,0.25), transparent)",
-            }}
-          />
+              {/* Title */}
+              <div>
+                <p
+                  style={{
+                    fontSize: displayTitle.length > 25 ? 10 : 12,
+                    fontWeight: 700,
+                    color: "white",
+                    lineHeight: 1.3,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {displayTitle}
+                </p>
+              </div>
+
+              {/* Bottom shimmer stripe */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 28,
+                  background: "linear-gradient(to top, rgba(0,0,0,0.25), transparent)",
+                }}
+              />
+            </>
+          )}
         </div>
 
-        {/* ── Spine ─────────────────────────────────────── */}
+        {/* Spine */}
         <div
           style={{
             position: "absolute",
@@ -126,7 +143,7 @@ export function BookCover3D({ book }: BookCover3DProps) {
           }}
         />
 
-        {/* ── Page stack (right edge) ────────────────────── */}
+        {/* Page stack (right edge) */}
         <div
           style={{
             position: "absolute",
@@ -140,7 +157,7 @@ export function BookCover3D({ book }: BookCover3DProps) {
           }}
         />
 
-        {/* ── Back cover ────────────────────────────────── */}
+        {/* Back cover */}
         <div
           style={{
             position: "absolute",

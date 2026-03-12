@@ -1,12 +1,15 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { EditorProvider, useEditor, makeDefaultElement } from "./editor-context"
 import { EditorToolbar } from "./editor-toolbar"
 import { LeftPanel } from "./left-panel"
 import { CanvasArea } from "./canvas-area"
 import { NavigatorPanel } from "./navigator-panel"
+import { ShortcutsDialog } from "./shortcuts-dialog"
+import { useEditorKeyboard } from "./hooks/use-editor-keyboard"
 import { savePages } from "@/app/actions/pages"
+import { updateBookCoverImage } from "@/app/actions/books"
 import type { EditorPage, ElementType } from "@/lib/editor/types"
 
 interface BookInfo {
@@ -22,12 +25,43 @@ interface EditorShellProps {
   userId?: string
 }
 
+async function captureCoverThumbnail(bookId: string, pages: EditorPage[]) {
+  const coverPage = pages.find((p) => p.isCover)
+  if (!coverPage) return
+
+  try {
+    const { toBlob } = await import("html-to-image")
+    const coverCanvas = document.querySelector(`[data-page-id="${coverPage.id}"]`) as HTMLElement | null
+    if (!coverCanvas) return
+
+    const blob = await toBlob(coverCanvas, {
+      width: 400,
+      height: Math.round(400 * (1123 / 794)),
+      pixelRatio: 1,
+      cacheBust: true,
+    })
+    if (!blob) return
+
+    const form = new FormData()
+    form.append("file", new File([blob], "cover-thumb.webp", { type: "image/webp" }))
+    form.append("bookId", bookId)
+    const res = await fetch("/api/images/upload", { method: "POST", body: form })
+    const data = await res.json()
+    if (res.ok && data.url) {
+      await updateBookCoverImage(bookId, data.url)
+    }
+  } catch {
+    // Non-critical — silently fail
+  }
+}
+
 function AutoSaveWatcher({ bookId }: { bookId: string }) {
   const { state, dispatch } = useEditor()
   const prevPagesRef = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFirstRender = useRef(true)
   const pagesRef = useRef(state.pages)
+  const coverThumbTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   pagesRef.current = state.pages
 
   useEffect(() => {
@@ -50,6 +84,12 @@ function AutoSaveWatcher({ bookId }: { bookId: string }) {
       try {
         await savePages(bookId, state.pages)
         dispatch({ type: "SET_SAVE_STATUS", status: "saved" })
+
+        // Debounced cover thumbnail capture (5s after save)
+        if (coverThumbTimerRef.current) clearTimeout(coverThumbTimerRef.current)
+        coverThumbTimerRef.current = setTimeout(() => {
+          captureCoverThumbnail(bookId, pagesRef.current)
+        }, 5000)
       } catch (err) {
         console.error("Auto-save failed:", err)
         dispatch({ type: "SET_SAVE_STATUS", status: "unsaved" })
@@ -63,6 +103,7 @@ function AutoSaveWatcher({ bookId }: { bookId: string }) {
         clearTimeout(timerRef.current)
         savePages(bookId, pagesRef.current).catch(console.error)
       }
+      if (coverThumbTimerRef.current) clearTimeout(coverThumbTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -73,27 +114,19 @@ function AutoSaveWatcher({ bookId }: { bookId: string }) {
 function EditorLayout({ book, userId }: { book: BookInfo; userId?: string }) {
   const { dispatch } = useEditor()
   const [isExporting, setIsExporting] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [leftPanelTab, setLeftPanelTab] = useState<string | null>(null)
+
+  // Keyboard shortcuts hook (replaces old useEffect)
+  useEditorKeyboard(() => setShowShortcuts(true))
 
   function handleAddElement(type: ElementType) {
     dispatch({ type: "ADD_ELEMENT", element: makeDefaultElement(type) })
   }
 
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      const mod = e.metaKey || e.ctrlKey
-      if (!mod) return
-      if (e.key === "z" && !e.shiftKey) {
-        e.preventDefault()
-        dispatch({ type: "UNDO" })
-      }
-      if (e.key === "z" && e.shiftKey) {
-        e.preventDefault()
-        dispatch({ type: "REDO" })
-      }
-    }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [dispatch])
+  const handleOpenTab = useCallback((tab: string) => {
+    setLeftPanelTab(tab)
+  }, [])
 
   async function handleExportPDF() {
     setIsExporting(true)
@@ -132,6 +165,7 @@ function EditorLayout({ book, userId }: { book: BookInfo; userId?: string }) {
         onExportPDF={handleExportPDF}
         onExportEPUB={handleExportEPUB}
         isExporting={isExporting}
+        onShowShortcuts={() => setShowShortcuts(true)}
       />
       <div className="flex flex-1 min-h-0">
         <LeftPanel
@@ -141,10 +175,13 @@ function EditorLayout({ book, userId }: { book: BookInfo; userId?: string }) {
           bookGenre={book.genre}
           bookDescription={book.description}
           userId={userId}
+          activeTab={leftPanelTab}
+          onTabChange={setLeftPanelTab}
         />
-        <CanvasArea bookId={book.id} />
+        <CanvasArea bookId={book.id} onOpenTab={handleOpenTab} />
         <NavigatorPanel />
       </div>
+      <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }

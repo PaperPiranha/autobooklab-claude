@@ -122,38 +122,53 @@ function BookCard({ book }: { book: Book }) {
 
   return (
     <Link href={`/books/${book.id}`} className="group block">
-      <div className="rounded-lg border border-border bg-card p-5 hover:border-primary/40 hover:bg-card/80 transition-all h-full flex flex-col gap-3">
-        {/* Genre bar accent */}
-        <div className="h-0.5 w-8 rounded-full bg-primary opacity-60 group-hover:opacity-100 transition-opacity" />
+      <div className="rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-card/80 transition-all h-full flex flex-col overflow-hidden">
+        {/* Cover thumbnail or genre accent */}
+        {book.cover_image_url ? (
+          <div className="w-full h-32 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={book.cover_image_url}
+              alt={`${book.title} cover`}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+        ) : (
+          <div className="pt-5 px-5">
+            <div className="h-0.5 w-8 rounded-full bg-primary opacity-60 group-hover:opacity-100 transition-opacity" />
+          </div>
+        )}
 
-        <div className="flex-1">
-          <h3
-            className="text-base font-normal leading-snug mb-1 group-hover:text-primary transition-colors"
-            style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
-          >
-            {book.title}
-          </h3>
-          {book.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2">{book.description}</p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {book.genre && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
-                {book.genre}
-              </Badge>
+        <div className="p-5 pt-3 flex flex-col gap-3 flex-1">
+          <div className="flex-1">
+            <h3
+              className="text-base font-normal leading-snug mb-1 group-hover:text-primary transition-colors"
+              style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
+            >
+              {book.title}
+            </h3>
+            {book.description && (
+              <p className="text-xs text-muted-foreground line-clamp-2">{book.description}</p>
             )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {book.genre && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                  {book.genre}
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <BookOpen className="h-3 w-3" />
+                {book.chapter_count}
+              </span>
+            </div>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <BookOpen className="h-3 w-3" />
-              {book.chapter_count}
+              <Clock className="h-3 w-3" />
+              {relativeTime}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {relativeTime}
-          </span>
         </div>
       </div>
     </Link>

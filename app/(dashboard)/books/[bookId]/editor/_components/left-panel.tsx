@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   LayoutGrid,
   Type,
@@ -45,6 +45,8 @@ interface LeftPanelProps {
   bookGenre: string
   bookDescription: string
   userId?: string
+  activeTab?: string | null
+  onTabChange?: (tab: string | null) => void
 }
 
 export function LeftPanel({
@@ -54,8 +56,18 @@ export function LeftPanel({
   bookGenre,
   bookDescription,
   userId,
+  activeTab: externalTab,
+  onTabChange,
 }: LeftPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("elements")
+
+  // Allow external tab control (e.g. from empty page overlay)
+  useEffect(() => {
+    if (externalTab && TABS.some((t) => t.id === externalTab)) {
+      setActiveTab(externalTab as TabId)
+      onTabChange?.(null) // reset external trigger
+    }
+  }, [externalTab, onTabChange])
 
   return (
     <aside className="flex shrink-0 bg-sidebar border-r border-border h-full">

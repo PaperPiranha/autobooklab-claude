@@ -10,6 +10,8 @@ interface PageRow {
   name: string
   background_color: string
   elements: PageElement[]
+  is_cover: boolean
+  page_type: string
   created_at: string
   updated_at: string
 }
@@ -22,6 +24,8 @@ function rowToPage(row: PageRow): EditorPage {
     name: row.name,
     backgroundColor: row.background_color,
     elements: (row.elements as PageElement[]) ?? [],
+    isCover: row.is_cover ?? false,
+    pageType: (row.page_type as EditorPage["pageType"]) ?? "content",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -71,6 +75,8 @@ export async function savePages(bookId: string, pages: EditorPage[]): Promise<vo
       name: page.name,
       background_color: page.backgroundColor,
       elements: page.elements,
+      is_cover: page.isCover ?? false,
+      page_type: page.pageType ?? "content",
     }))
 
     const { error } = await supabase.from("pages").upsert(rows, { onConflict: "id" })

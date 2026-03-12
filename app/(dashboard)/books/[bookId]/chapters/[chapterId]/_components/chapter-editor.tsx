@@ -9,9 +9,9 @@ import CharacterCount from "@tiptap/extension-character-count"
 import Typography from "@tiptap/extension-typography"
 import Link from "@tiptap/extension-link"
 import Underline from "@tiptap/extension-underline"
-import { Check, Loader2, Sparkles } from "lucide-react"
+import { Check, Loader2, Pencil, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { updateChapterContent } from "@/app/actions/books"
+import { updateChapterContent, updateChapterTitle } from "@/app/actions/books"
 import { Toolbar } from "./toolbar"
 import { AiPanel } from "./ai-panel"
 import type { Chapter } from "@/lib/types"
@@ -47,6 +47,9 @@ export function ChapterEditor({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [credits, setCredits] = useState(initialCredits)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [chapterTitle, setChapterTitle] = useState(chapter.title)
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestContentRef = useRef(chapter.content)
   const latestWordCountRef = useRef(chapter.word_count)
@@ -131,6 +134,22 @@ export function ChapterEditor({
       .run()
   }
 
+  function startEditingTitle() {
+    setChapterTitle(chapter.title)
+    setIsEditingTitle(true)
+    setTimeout(() => titleInputRef.current?.select(), 0)
+  }
+
+  function saveChapterTitle() {
+    const trimmed = chapterTitle.trim()
+    if (trimmed && trimmed !== chapter.title) {
+      updateChapterTitle(chapter.id, trimmed, book.id)
+    } else {
+      setChapterTitle(chapter.title)
+    }
+    setIsEditingTitle(false)
+  }
+
   return (
     <div className="flex flex-1 min-h-0">
       {/* Editor column */}
@@ -164,12 +183,37 @@ export function ChapterEditor({
         {/* Chapter title + content */}
         <div className="flex-1 overflow-y-auto">
           <div className="px-16 pt-10 pb-4">
-            <h2
-              className="text-3xl font-normal text-foreground"
-              style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
-            >
-              {chapter.title}
-            </h2>
+            {isEditingTitle ? (
+              <input
+                ref={titleInputRef}
+                value={chapterTitle}
+                onChange={(e) => setChapterTitle(e.target.value)}
+                onBlur={saveChapterTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveChapterTitle()
+                  if (e.key === "Escape") { setChapterTitle(chapter.title); setIsEditingTitle(false) }
+                }}
+                className="text-3xl font-normal text-foreground bg-transparent border-b border-primary outline-none w-full py-0.5"
+                style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
+                autoFocus
+              />
+            ) : (
+              <div className="flex items-center gap-2 group/chapter-title">
+                <h2
+                  className="text-3xl font-normal text-foreground"
+                  style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
+                >
+                  {chapter.title}
+                </h2>
+                <button
+                  onClick={startEditingTitle}
+                  className="shrink-0 opacity-0 group-hover/chapter-title:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+                  title="Rename chapter"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
           <div className="px-16 pb-16">
             <EditorContent editor={editor} />

@@ -140,6 +140,39 @@ export async function reorderChapters(bookId: string, orderedIds: string[]) {
   revalidatePath(`/books/${bookId}`)
 }
 
+export async function updateBookTitle(bookId: string, title: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from("books")
+    .update({ title: title.trim() })
+    .eq("id", bookId)
+    .eq("user_id", user.id)
+
+  revalidatePath(`/books/${bookId}`)
+  revalidatePath("/dashboard")
+}
+
+export async function updateBookDescription(bookId: string, description: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from("books")
+    .update({ description: description.trim() })
+    .eq("id", bookId)
+    .eq("user_id", user.id)
+
+  revalidatePath(`/books/${bookId}`)
+}
+
 export async function updateChapterTitle(chapterId: string, title: string, bookId: string) {
   const supabase = await createClient()
   await supabase.from("chapters").update({ title: title.trim() }).eq("id", chapterId)
@@ -180,6 +213,23 @@ export async function unpublishBook(bookId: string): Promise<{ error?: string }>
   revalidatePath(`/books/${bookId}`)
   revalidatePath(`/p/${bookId}`)
   return {}
+}
+
+export async function updateBookCoverImage(bookId: string, coverImageUrl: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from("books")
+    .update({ cover_image_url: coverImageUrl })
+    .eq("id", bookId)
+    .eq("user_id", user.id)
+
+  revalidatePath(`/books/${bookId}`)
+  revalidatePath("/dashboard")
 }
 
 export async function createBookFromImport(data: {

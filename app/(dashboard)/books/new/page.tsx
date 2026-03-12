@@ -78,8 +78,8 @@ const SOURCES = [
   {
     id: "pdf" as Source,
     icon: FileText,
-    label: "PDF / Doc",
-    description: "Upload a PDF and extract its text",
+    label: "PDF / Word",
+    description: "Upload a PDF or Word document and extract its text",
   },
   {
     id: "paste" as Source,
@@ -257,7 +257,7 @@ export default function NewBookPage() {
   // ─────────────────────────────────────────────────────────
   async function handlePdfCreate() {
     if (!pdfTitle.trim()) return setError("Please enter a book title")
-    if (!pdfFile) return setError("Please select a PDF file")
+    if (!pdfFile) return setError("Please select a file")
     setError("")
     setIsUploadingPdf(true)
     try {
@@ -384,7 +384,7 @@ export default function NewBookPage() {
             {source === null && "Choose how to create your book"}
             {source === "ai" && `Step ${step + 1} of ${AI_STEPS.length} — ${AI_STEPS[step]}`}
             {source === "url" && (urlState === "preview" ? "Review & create" : "Import from URL")}
-            {source === "pdf" && "Upload a PDF"}
+            {source === "pdf" && "Upload a PDF or Word document"}
             {source === "paste" && "Paste your content"}
             {source === "youtube" && (ytState === "preview" ? "Review & create" : "Import from YouTube")}
           </p>
@@ -645,11 +645,11 @@ export default function NewBookPage() {
             </div>
           )}
 
-          {/* ── PDF import ────────────────────────────────── */}
+          {/* ── PDF / Word import ─────────────────────────── */}
           {source === "pdf" && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-2xl font-normal mb-1">Upload a PDF</h2>
+                <h2 className="text-2xl font-normal mb-1">Upload a PDF or Word document</h2>
                 <p className="text-sm text-muted-foreground">
                   We&apos;ll extract the text and create a book you can edit and export.
                 </p>
@@ -669,7 +669,7 @@ export default function NewBookPage() {
                 <GenreSelect value={pdfGenre} onChange={setPdfGenre} />
               </div>
               <div className="space-y-2">
-                <Label>PDF file</Label>
+                <Label>Document file</Label>
                 <div
                   className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
                     pdfFile
@@ -688,21 +688,21 @@ export default function NewBookPage() {
                     </>
                   ) : (
                     <>
-                      <p className="text-sm font-medium">Click to choose a PDF</p>
-                      <p className="text-xs text-muted-foreground">Max 10 MB</p>
+                      <p className="text-sm font-medium">Click to choose a PDF or Word file</p>
+                      <p className="text-xs text-muted-foreground">PDF or DOCX · Max 10 MB</p>
                     </>
                   )}
                 </div>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="application/pdf,.pdf"
+                  accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
                     if (f) {
                       setPdfFile(f)
-                      if (!pdfTitle) setPdfTitle(f.name.replace(/\.pdf$/i, ""))
+                      if (!pdfTitle) setPdfTitle(f.name.replace(/\.(pdf|docx)$/i, ""))
                     }
                   }}
                 />

@@ -1,7 +1,9 @@
 "use client"
 
 import React, { createContext, useContext, useReducer } from "react"
-import type { EditorPage, PageElement, ElementType } from "@/lib/editor/types"
+import type { EditorPage, PageElement, ElementType, PageType } from "@/lib/editor/types"
+import { findOpenPosition } from "@/lib/editor/placement"
+import { getPresetById } from "@/lib/editor/page-presets"
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -11,6 +13,7 @@ interface EditorState {
   activePageId: string
   selectedElementId: string | null
   saveStatus: "saved" | "saving" | "unsaved"
+  zoom: number
   past: EditorPage[][]
   future: EditorPage[][]
 }
@@ -21,13 +24,21 @@ type EditorAction =
   | { type: "SET_ACTIVE_PAGE"; pageId: string }
   | { type: "SET_SELECTED_ELEMENT"; elementId: string | null }
   | { type: "SET_SAVE_STATUS"; status: "saved" | "saving" | "unsaved" }
+  | { type: "SET_ZOOM"; zoom: number }
   | { type: "ADD_PAGE" }
+  | { type: "ADD_COVER_PAGE" }
+  | { type: "ADD_TYPED_PAGE"; pageType: PageType; presetId: string }
   | { type: "DELETE_PAGE"; pageId: string }
   | { type: "RENAME_PAGE"; pageId: string; name: string }
   | { type: "MOVE_PAGE"; fromIndex: number; toIndex: number }
   | { type: "ADD_ELEMENT"; element: PageElement }
   | { type: "UPDATE_ELEMENT"; elementId: string; updates: Partial<PageElement> }
   | { type: "DELETE_ELEMENT"; elementId: string }
+  | { type: "DUPLICATE_ELEMENT"; elementId: string }
+  | { type: "BRING_TO_FRONT"; elementId: string }
+  | { type: "SEND_TO_BACK"; elementId: string }
+  | { type: "BRING_FORWARD"; elementId: string }
+  | { type: "SEND_BACKWARD"; elementId: string }
   | { type: "SET_PAGE_BG"; pageId: string; backgroundColor: string }
   | { type: "CLEAR_PAGE_ELEMENTS" }
   | { type: "REPLACE_PAGES"; pages: EditorPage[] }
@@ -248,6 +259,9 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
     case "SET_SAVE_STATUS":
       return { ...state, saveStatus: action.status }
 
+    case "SET_ZOOM":
+      return { ...state, zoom: action.zoom }
+
     case "ADD_PAGE": {
       const newPage = makeBlankPage(state.bookId, state.pages.length)
       return {
@@ -258,8 +272,69 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       }
     }
 
+    case "ADD_COVER_PAGE": {
+      // Only one cover page allowed
+      if (state.pages.some((p) => p.isCover)) return state
+      const now = new Date().toISOString()
+      const coverPage: EditorPage = {
+        id: crypto.randomUUID(),
+        bookId: state.bookId,
+        orderIndex: 0,
+        name: "Cover",
+        backgroundColor: "#0f0f0f",
+        isCover: true,
+        elements: [
+          {
+            id: crypto.randomUUID(),
+            type: "shape",
+            x: 0, y: 0, w: 794, h: 8,
+            zIndex: 1, locked: false,
+            content: { shapeType: "rect" },
+            styles: { backgroundColor: "#F97316", opacity: 100, strokeColor: "transparent", strokeWidth: 0 },
+          },
+          {
+            id: crypto.randomUUID(),
+            type: "heading",
+            x: 72, y: 340, w: 650, h: 180,
+            zIndex: 2, locked: false,
+            content: { text: "Book Title" },
+            styles: { fontSize: 56, fontWeight: 700, color: "#ffffff", textAlign: "center", lineHeight: 1.15 },
+          },
+          {
+            id: crypto.randomUUID(),
+            type: "text",
+            x: 122, y: 530, w: 550, h: 80,
+            zIndex: 3, locked: false,
+            content: { text: "Subtitle or tagline" },
+            styles: { fontSize: 18, color: "#a0a0a0", textAlign: "center", lineHeight: 1.5 },
+          },
+          {
+            id: crypto.randomUUID(),
+            type: "divider",
+            x: 297, y: 480, w: 200, h: 3,
+            zIndex: 4, locked: false,
+            content: {},
+            styles: { backgroundColor: "#F97316" },
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      }
+      // Insert at position 0, shift other pages
+      const shifted = state.pages.map((p) => ({ ...p, orderIndex: p.orderIndex + 1 }))
+      return {
+        ...state,
+        ...withHistory(state, [coverPage, ...shifted]),
+        activePageId: coverPage.id,
+        selectedElementId: null,
+      }
+    }
+
     case "DELETE_PAGE": {
       if (state.pages.length <= 1) return state
+      // Protect cover page from deletion
+      const targetPage = state.pages.find((p) => p.id === action.pageId)
+      if (targetPage?.isCover) return state
       const newPages = state.pages
         .filter((p) => p.id !== action.pageId)
         .map((p, i) => ({ ...p, orderIndex: i }))
@@ -286,6 +361,9 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
     case "MOVE_PAGE": {
       const { fromIndex, toIndex } = action
       if (fromIndex === toIndex) return state
+      // Protect cover page position
+      if (state.pages[fromIndex]?.isCover) return state
+      if (toIndex === 0 && state.pages[0]?.isCover) return state
       const pages = [...state.pages]
       const [moved] = pages.splice(fromIndex, 1)
       pages.splice(toIndex, 0, moved)
@@ -296,10 +374,10 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
     }
 
     case "ADD_ELEMENT": {
-      const maxZ = state.pages
-        .find((p) => p.id === state.activePageId)
-        ?.elements.reduce((max, el) => Math.max(max, el.zIndex), 0) ?? 0
-      const elementWithZ = { ...action.element, zIndex: maxZ + 1 }
+      const currentPage = state.pages.find((p) => p.id === state.activePageId)
+      const maxZ = currentPage?.elements.reduce((max, el) => Math.max(max, el.zIndex), 0) ?? 0
+      const smartPos = findOpenPosition(currentPage?.elements ?? [], action.element)
+      const elementWithZ = { ...action.element, ...smartPos, zIndex: maxZ + 1 }
       const newPages = state.pages.map((p) =>
         p.id === state.activePageId
           ? { ...p, elements: [...p.elements, elementWithZ] }
@@ -340,6 +418,132 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         ...withHistory(state, newPages),
         selectedElementId:
           state.selectedElementId === action.elementId ? null : state.selectedElementId,
+      }
+    }
+
+    case "DUPLICATE_ELEMENT": {
+      const dupPage = state.pages.find((p) => p.id === state.activePageId)
+      const sourceEl = dupPage?.elements.find((el) => el.id === action.elementId)
+      if (!sourceEl || !dupPage) return state
+      const maxZDup = dupPage.elements.reduce((max, el) => Math.max(max, el.zIndex), 0)
+      const newId = crypto.randomUUID()
+      const dupPos = findOpenPosition(dupPage.elements, { ...sourceEl, x: sourceEl.x + 20, y: sourceEl.y + 20 })
+      const duplicate: PageElement = { ...sourceEl, id: newId, ...dupPos, zIndex: maxZDup + 1 }
+      const newPages = state.pages.map((p) =>
+        p.id === state.activePageId
+          ? { ...p, elements: [...p.elements, duplicate] }
+          : p
+      )
+      return {
+        ...state,
+        ...withHistory(state, newPages),
+        selectedElementId: newId,
+      }
+    }
+
+    case "BRING_TO_FRONT": {
+      const page = state.pages.find((p) => p.id === state.activePageId)
+      if (!page) return state
+      const maxZ = page.elements.reduce((max, el) => Math.max(max, el.zIndex), 0)
+      const newPages = state.pages.map((p) =>
+        p.id === state.activePageId
+          ? { ...p, elements: p.elements.map((el) => el.id === action.elementId ? { ...el, zIndex: maxZ + 1 } : el) }
+          : p
+      )
+      return { ...state, ...withHistory(state, newPages) }
+    }
+
+    case "SEND_TO_BACK": {
+      const page = state.pages.find((p) => p.id === state.activePageId)
+      if (!page) return state
+      const minZ = page.elements.reduce((min, el) => Math.min(min, el.zIndex), Infinity)
+      const newPages = state.pages.map((p) =>
+        p.id === state.activePageId
+          ? { ...p, elements: p.elements.map((el) => el.id === action.elementId ? { ...el, zIndex: minZ - 1 } : el) }
+          : p
+      )
+      return { ...state, ...withHistory(state, newPages) }
+    }
+
+    case "BRING_FORWARD": {
+      const page = state.pages.find((p) => p.id === state.activePageId)
+      if (!page) return state
+      const el = page.elements.find((e) => e.id === action.elementId)
+      if (!el) return state
+      // Find next higher z-index element and swap
+      const sorted = [...page.elements].sort((a, b) => a.zIndex - b.zIndex)
+      const idx = sorted.findIndex((e) => e.id === action.elementId)
+      if (idx >= sorted.length - 1) return state
+      const swapWith = sorted[idx + 1]
+      const newPages = state.pages.map((p) =>
+        p.id === state.activePageId
+          ? { ...p, elements: p.elements.map((e) => {
+              if (e.id === action.elementId) return { ...e, zIndex: swapWith.zIndex }
+              if (e.id === swapWith.id) return { ...e, zIndex: el.zIndex }
+              return e
+            })}
+          : p
+      )
+      return { ...state, ...withHistory(state, newPages) }
+    }
+
+    case "SEND_BACKWARD": {
+      const page = state.pages.find((p) => p.id === state.activePageId)
+      if (!page) return state
+      const el = page.elements.find((e) => e.id === action.elementId)
+      if (!el) return state
+      const sorted = [...page.elements].sort((a, b) => a.zIndex - b.zIndex)
+      const idx = sorted.findIndex((e) => e.id === action.elementId)
+      if (idx <= 0) return state
+      const swapWith = sorted[idx - 1]
+      const newPages = state.pages.map((p) =>
+        p.id === state.activePageId
+          ? { ...p, elements: p.elements.map((e) => {
+              if (e.id === action.elementId) return { ...e, zIndex: swapWith.zIndex }
+              if (e.id === swapWith.id) return { ...e, zIndex: el.zIndex }
+              return e
+            })}
+          : p
+      )
+      return { ...state, ...withHistory(state, newPages) }
+    }
+
+    case "ADD_TYPED_PAGE": {
+      const preset = getPresetById(action.presetId)
+      if (!preset) return state
+      const now = new Date().toISOString()
+      const newPage: EditorPage = {
+        id: crypto.randomUUID(),
+        bookId: state.bookId,
+        orderIndex: state.pages.length,
+        name: preset.label,
+        backgroundColor: preset.backgroundColor,
+        pageType: action.pageType,
+        isCover: action.pageType === "cover",
+        elements: preset.elements.map((el) => ({ ...el, id: crypto.randomUUID() })),
+        createdAt: now,
+        updatedAt: now,
+      }
+
+      let newPages: EditorPage[]
+      if (action.pageType === "cover") {
+        // Only one cover allowed
+        if (state.pages.some((p) => p.isCover)) return state
+        const shifted = state.pages.map((p) => ({ ...p, orderIndex: p.orderIndex + 1 }))
+        newPage.orderIndex = 0
+        newPages = [newPage, ...shifted]
+      } else if (action.pageType === "back-cover") {
+        // Back covers go at end
+        newPages = [...state.pages, newPage]
+      } else {
+        newPages = [...state.pages, newPage]
+      }
+
+      return {
+        ...state,
+        ...withHistory(state, newPages),
+        activePageId: newPage.id,
+        selectedElementId: null,
       }
     }
 
@@ -420,8 +624,18 @@ export function EditorProvider({
   bookId: string
   initialPages: EditorPage[]
 }) {
-  const startPages =
-    initialPages.length > 0 ? initialPages : [makeBlankPage(bookId, 0)]
+  // Auto-detect legacy cover pages: if no page has isCover but the first page
+  // is named "Cover" and at orderIndex 0, mark it as the cover
+  let processedPages = initialPages.length > 0 ? initialPages : [makeBlankPage(bookId, 0)]
+  if (!processedPages.some((p) => p.isCover)) {
+    const first = processedPages[0]
+    if (first && first.orderIndex === 0 && first.name === "Cover") {
+      processedPages = processedPages.map((p, i) =>
+        i === 0 ? { ...p, isCover: true } : p
+      )
+    }
+  }
+  const startPages = processedPages
 
   const [state, dispatch] = useReducer(editorReducer, {
     pages: startPages,
@@ -429,6 +643,7 @@ export function EditorProvider({
     activePageId: startPages[0].id,
     selectedElementId: null,
     saveStatus: "saved",
+    zoom: 1,
     past: [],
     future: [],
   })

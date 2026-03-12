@@ -42,6 +42,7 @@ function buildCoverPage(bookId: string, title: string, subtitle: string): Editor
     orderIndex: 0,
     name: "Cover",
     backgroundColor: "#0f0f0f",
+    isCover: true,
     elements: [
       {
         id: makeId(),

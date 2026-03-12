@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, Loader2, Upload, Trash2, Image as ImageIcon, AlertCircle } from "lucide-react"
+import { Search, Loader2, Upload, Trash2, Image as ImageIcon, AlertCircle, Sparkles, Wand2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -28,7 +28,14 @@ interface ImagesTabProps {
   bookGenre: string
 }
 
-type SubTab = "suggested" | "mine"
+type SubTab = "suggested" | "mine" | "ai-generate"
+
+const AI_STYLE_PRESETS = [
+  { label: "Photographic", value: "photographic, realistic photography" },
+  { label: "Illustration", value: "digital illustration, detailed artwork" },
+  { label: "Abstract", value: "abstract art, geometric shapes, modern" },
+  { label: "Minimalist", value: "minimalist, clean, simple composition" },
+]
 
 export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
   const { state, dispatch } = useEditor()
@@ -51,6 +58,14 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
   const [uploadError, setUploadError] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // AI Generate
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [aiStyle, setAiStyle] = useState("")
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiGeneratedUrl, setAiGeneratedUrl] = useState("")
+  const [aiError, setAiError] = useState("")
+  const didAutoFillPrompt = useRef(false)
+
   // Auto-search on suggested tab open
   useEffect(() => {
     if (subTab === "suggested" && !didAutoSearch.current && !photos.length) {
@@ -68,6 +83,18 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
   useEffect(() => {
     if (subTab === "mine") {
       loadMyImages()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab])
+
+  // Auto-fill AI prompt
+  useEffect(() => {
+    if (subTab === "ai-generate" && !didAutoFillPrompt.current) {
+      const autoPrompt = [bookTitle, bookGenre].filter(Boolean).join(", ")
+      if (autoPrompt) {
+        setAiPrompt(`Book cover for "${autoPrompt}"`)
+        didAutoFillPrompt.current = true
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab])
@@ -149,6 +176,55 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
     }
   }
 
+  function insertAsCoverBackground(url: string) {
+    const { pages, activePageId } = state
+    const activePage = pages.find((p) => p.id === activePageId)
+    if (!activePage?.isCover) {
+      // Switch to cover page first if not already there
+      const coverPage = pages.find((p) => p.isCover)
+      if (coverPage) {
+        dispatch({ type: "SET_ACTIVE_PAGE", pageId: coverPage.id })
+      }
+    }
+
+    // Insert full-bleed background image at z-index 0
+    const el = makeDefaultElement("image")
+    dispatch({
+      type: "ADD_ELEMENT",
+      element: {
+        ...el,
+        x: 0,
+        y: 0,
+        w: 794,
+        h: 1123,
+        zIndex: 0,
+        content: { src: url, alt: "Cover background" },
+        styles: { objectFit: "cover", borderRadius: 0 },
+      },
+    })
+  }
+
+  async function handleAiGenerate() {
+    if (!aiPrompt.trim()) return
+    setAiGenerating(true)
+    setAiError("")
+    setAiGeneratedUrl("")
+    try {
+      const res = await fetch("/api/ai/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt, bookId, style: aiStyle }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Generation failed")
+      setAiGeneratedUrl(data.url)
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Generation failed")
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   async function deleteMyImage(name: string) {
     try {
       await fetch(`/api/images/mine?bookId=${bookId}&name=${encodeURIComponent(name)}`, { method: "DELETE" })
@@ -162,7 +238,7 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
     <div className="flex flex-col h-full">
       {/* Sub tabs */}
       <div className="flex gap-0.5 p-2 border-b border-border">
-        {(["suggested", "mine"] as const).map((t) => (
+        {(["suggested", "mine", "ai-generate"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setSubTab(t)}
@@ -171,7 +247,12 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
               subTab === t ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {t === "suggested" ? "Suggested" : "My Images"}
+            {t === "suggested" ? "Suggested" : t === "mine" ? "My Images" : (
+              <span className="flex items-center justify-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                AI
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -183,7 +264,7 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search Unsplash…"
+              placeholder="Search Unsplash..."
               className="h-7 text-xs"
               onKeyDown={(e) => e.key === "Enter" && doSearch(query, 1)}
             />
@@ -275,7 +356,7 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
               disabled={uploading}
             >
               {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-              {uploading ? "Uploading…" : "Upload image"}
+              {uploading ? "Uploading..." : "Upload image"}
             </Button>
             {uploadError && (
               <p className="text-xs text-destructive mt-1">{uploadError}</p>
@@ -316,6 +397,113 @@ export function ImagesTab({ bookId, bookTitle, bookGenre }: ImagesTabProps) {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* AI Generate */}
+      {subTab === "ai-generate" && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-3 space-y-3 border-b border-border">
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Describe your cover image
+              </label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="A dramatic mountain landscape at sunset..."
+                className="w-full h-16 text-xs bg-background border border-border rounded-md p-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                maxLength={500}
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Style
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {AI_STYLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => setAiStyle(aiStyle === preset.value ? "" : preset.value)}
+                    className={cn(
+                      "text-[10px] py-1.5 px-2 rounded border transition-colors",
+                      aiStyle === preset.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/60"
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              className="w-full gap-2 text-xs"
+              onClick={handleAiGenerate}
+              disabled={aiGenerating || !aiPrompt.trim()}
+            >
+              {aiGenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Wand2 className="h-3 w-3" />
+              )}
+              {aiGenerating ? "Generating..." : "Generate image"}
+              <span className="text-[10px] opacity-70">(3 credits)</span>
+            </Button>
+
+            {aiError && (
+              <div className="flex items-center gap-2 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {aiError}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3">
+            {aiGeneratedUrl ? (
+              <div className="space-y-2">
+                <div className="aspect-[1024/1792] w-full overflow-hidden rounded-md border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={aiGeneratedUrl}
+                    alt="AI generated cover"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 text-xs"
+                    onClick={() => insertPhoto(aiGeneratedUrl, "AI generated image")}
+                  >
+                    Insert
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => insertAsCoverBackground(aiGeneratedUrl)}
+                  >
+                    Use as cover
+                  </Button>
+                </div>
+              </div>
+            ) : !aiGenerating ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
+                <Wand2 className="h-8 w-8 opacity-30" />
+                <p className="text-xs text-center">Enter a prompt above to generate a cover image with DALL-E 3</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Generating your image...</p>
+                <p className="text-[10px] text-muted-foreground/60">This may take 10-20 seconds</p>
               </div>
             )}
           </div>

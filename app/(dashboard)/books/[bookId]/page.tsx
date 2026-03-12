@@ -3,9 +3,9 @@ import Link from "next/link"
 import { ArrowLeft, Trash2, Download, LayoutGrid, Globe } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { deleteBook } from "@/app/actions/books"
+import { EditableBookHeader } from "./_components/editable-book-header"
 import { AddChapterForm } from "./_components/add-chapter-form"
 import { SortableChapters } from "./_components/sortable-chapters"
 import { ExportPanel } from "./_components/export-panel"
@@ -81,30 +81,14 @@ export default async function BookPage({ params }: PageProps) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1
-                className="text-2xl font-normal"
-                style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
-              >
-                {typedBook.title}
-              </h1>
-              {typedBook.genre && (
-                <Badge variant="secondary" className="text-xs">
-                  {typedBook.genre}
-                </Badge>
-              )}
-            </div>
-            {typedBook.description && (
-              <p className="text-sm text-muted-foreground max-w-xl">
-                {typedBook.description}
-              </p>
-            )}
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span>{typedChapters.length} chapters</span>
-              <span>{totalWords.toLocaleString()} words</span>
-            </div>
-          </div>
+          <EditableBookHeader
+            bookId={bookId}
+            title={typedBook.title}
+            genre={typedBook.genre ?? ""}
+            description={typedBook.description ?? ""}
+            chapterCount={typedChapters.length}
+            totalWords={totalWords}
+          />
         </div>
 
         <div className="flex items-center gap-2">

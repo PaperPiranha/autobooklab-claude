@@ -1,11 +1,22 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react"
+import { Trash2, ChevronUp, ChevronDown, Plus, BookOpen, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEditor } from "./editor-context"
 import { PropertiesPanel } from "./properties-panel"
 import type { PageElement } from "@/lib/editor/types"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { COVER_PRESETS, CONTENT_PRESETS, BACK_COVER_PRESETS } from "@/lib/editor/page-presets"
 
 const SCALE = 0.17
 const THUMB_W = Math.round(794 * SCALE)   // ~135
@@ -48,7 +59,6 @@ function ThumbnailPreview({ elements, backgroundColor }: { elements: PageElement
         flexShrink: 0,
       }}
     >
-      {/* Render a 794×1123 div scaled down */}
       <div
         style={{
           width: 794,
@@ -89,26 +99,27 @@ export function NavigatorPanel() {
 
   const [activeTab, setActiveTab] = useState<TabId>("navigator")
 
-  // Auto-switch to Properties tab when an element is selected
   useEffect(() => {
     if (selectedElementId !== null) {
       setActiveTab("properties")
     }
   }, [selectedElementId])
 
-  // Find the selected element on the active page
   const activePage = pages.find((p) => p.id === activePageId)
   const selectedElement = activePage?.elements.find((el) => el.id === selectedElementId) ?? null
 
-  function handleAddPage() {
-    dispatch({ type: "ADD_PAGE" })
-  }
+  const hasCoverPage = pages.some((p) => p.isCover)
 
   function handleDeletePage(pageId: string) {
+    const page = pages.find((p) => p.id === pageId)
+    if (page?.isCover) return
     dispatch({ type: "DELETE_PAGE", pageId })
   }
 
   function handleMovePage(fromIndex: number, toIndex: number) {
+    const page = pages[fromIndex]
+    if (page?.isCover) return
+    if (toIndex === 0 && pages[0]?.isCover) return
     dispatch({ type: "MOVE_PAGE", fromIndex, toIndex })
   }
 
@@ -160,6 +171,8 @@ export function NavigatorPanel() {
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {pages.map((page, idx) => {
               const isActive = page.id === activePageId
+              const isCover = page.isCover ?? false
+              const pageType = page.pageType
               return (
                 <div key={page.id} className="group relative">
                   <button
@@ -175,64 +188,148 @@ export function NavigatorPanel() {
                     />
                   </button>
 
-                  <p className="text-[10px] text-muted-foreground text-center mt-1 truncate">
-                    {page.name}
-                  </p>
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    {isCover && (
+                      <BookOpen className="h-3 w-3 text-primary shrink-0" />
+                    )}
+                    <p className="text-[10px] text-muted-foreground text-center truncate">
+                      {page.name}
+                    </p>
+                    {/* Page type badge */}
+                    {pageType === "cover" && !isCover && (
+                      <span className="text-[8px] px-1 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">C</span>
+                    )}
+                    {pageType === "back-cover" && (
+                      <span className="text-[8px] px-1 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-medium">BC</span>
+                    )}
+                  </div>
 
                   {/* Page actions — visible on hover */}
                   <div className="absolute top-1 right-1 hidden group-hover:flex flex-col gap-0.5">
-                    <button
-                      className="p-0.5 bg-background/80 rounded hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (idx > 0) handleMovePage(idx, idx - 1)
-                      }}
-                      disabled={idx === 0}
-                      title="Move up"
-                    >
-                      <ChevronUp className="h-3 w-3" />
-                    </button>
-                    <button
-                      className="p-0.5 bg-background/80 rounded hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (idx < pages.length - 1) handleMovePage(idx, idx + 1)
-                      }}
-                      disabled={idx === pages.length - 1}
-                      title="Move down"
-                    >
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                    <button
-                      className={cn(
-                        "p-0.5 bg-background/80 rounded transition-colors",
-                        pages.length <= 1
-                          ? "text-muted-foreground/30 cursor-not-allowed"
-                          : "text-muted-foreground hover:text-destructive hover:bg-background"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (pages.length > 1) handleDeletePage(page.id)
-                      }}
-                      disabled={pages.length <= 1}
-                      title="Delete page"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                    {!isCover && (
+                      <>
+                        <button
+                          className="p-0.5 bg-background/80 rounded hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (idx > 0) handleMovePage(idx, idx - 1)
+                          }}
+                          disabled={idx === 0 || (idx === 1 && pages[0]?.isCover)}
+                          title="Move up"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          className="p-0.5 bg-background/80 rounded hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (idx < pages.length - 1) handleMovePage(idx, idx + 1)
+                          }}
+                          disabled={idx === pages.length - 1}
+                          title="Move down"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                        <button
+                          className={cn(
+                            "p-0.5 bg-background/80 rounded transition-colors",
+                            pages.length <= 1
+                              ? "text-muted-foreground/30 cursor-not-allowed"
+                              : "text-muted-foreground hover:text-destructive hover:bg-background"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (pages.length > 1) handleDeletePage(page.id)
+                          }}
+                          disabled={pages.length <= 1}
+                          title="Delete page"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )
             })}
           </div>
 
+          {/* Add Page dropdown */}
           <div className="p-3 border-t border-border shrink-0">
-            <button
-              className="w-full flex items-center justify-center gap-1.5 py-2 rounded border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/60 transition-colors"
-              onClick={handleAddPage}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Page
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full flex items-center justify-center gap-1.5 py-2 rounded border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/60 transition-colors">
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Page
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-48">
+                <DropdownMenuItem onClick={() => dispatch({ type: "ADD_PAGE" })}>
+                  Blank Page
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    Content
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {CONTENT_PRESETS.map((preset) => (
+                      <DropdownMenuItem
+                        key={preset.id}
+                        onClick={() => dispatch({ type: "ADD_TYPED_PAGE", pageType: "content", presetId: preset.id })}
+                      >
+                        <div>
+                          <div className="text-xs font-medium">{preset.label}</div>
+                          <div className="text-[10px] text-muted-foreground">{preset.description}</div>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    Back Cover
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {BACK_COVER_PRESETS.map((preset) => (
+                      <DropdownMenuItem
+                        key={preset.id}
+                        onClick={() => dispatch({ type: "ADD_TYPED_PAGE", pageType: "back-cover", presetId: preset.id })}
+                      >
+                        <div>
+                          <div className="text-xs font-medium">{preset.label}</div>
+                          <div className="text-[10px] text-muted-foreground">{preset.description}</div>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                {!hasCoverPage && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        Cover
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {COVER_PRESETS.map((preset) => (
+                          <DropdownMenuItem
+                            key={preset.id}
+                            onClick={() => dispatch({ type: "ADD_TYPED_PAGE", pageType: "cover", presetId: preset.id })}
+                          >
+                            <div>
+                              <div className="text-xs font-medium">{preset.label}</div>
+                              <div className="text-[10px] text-muted-foreground">{preset.description}</div>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </>
       )}

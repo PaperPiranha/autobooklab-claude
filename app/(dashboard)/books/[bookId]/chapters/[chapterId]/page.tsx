@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { ChapterEditor } from "./_components/chapter-editor"
+import { EditableChapterBreadcrumb } from "./_components/editable-chapter-breadcrumb"
 import type { Book, Chapter } from "@/lib/types"
 
 interface PageProps {
@@ -56,16 +57,12 @@ export default async function ChapterPage({ params }: PageProps) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span
-              className="text-foreground font-medium"
-              style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
-            >
-              {typedBook.title}
-            </span>
-            <span>/</span>
-            <span>{typedChapter.title}</span>
-          </div>
+          <EditableChapterBreadcrumb
+            bookTitle={typedBook.title}
+            chapterTitle={typedChapter.title}
+            chapterId={chapterId}
+            bookId={bookId}
+          />
         </div>
 
         <div className="flex items-center gap-2">

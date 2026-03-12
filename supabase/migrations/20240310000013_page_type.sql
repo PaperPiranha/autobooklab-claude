@@ -1,0 +1,1 @@
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS page_type text NOT NULL DEFAULT 'content';

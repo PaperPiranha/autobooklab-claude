@@ -10,6 +10,7 @@ export interface PlanFeatures {
   exports: ExportFormat[]
   aiChat: boolean
   batchGenerate: boolean
+  aiImageGeneration: boolean
   priorityAi: boolean
   customBranding: boolean
   publicProfile: boolean
@@ -25,6 +26,7 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
     exports: ["pdf"],
     aiChat: false,
     batchGenerate: false,
+    aiImageGeneration: false,
     priorityAi: false,
     customBranding: false,
     publicProfile: false,
@@ -38,6 +40,7 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
     exports: ["pdf", "epub"],
     aiChat: true,
     batchGenerate: false,
+    aiImageGeneration: true,
     priorityAi: false,
     customBranding: false,
     publicProfile: false,
@@ -51,6 +54,7 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
     exports: ["pdf", "epub"],
     aiChat: true,
     batchGenerate: true,
+    aiImageGeneration: true,
     priorityAi: false,
     customBranding: false,
     publicProfile: true,
@@ -64,6 +68,7 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
     exports: ["pdf", "epub"],
     aiChat: true,
     batchGenerate: true,
+    aiImageGeneration: true,
     priorityAi: true,
     customBranding: true,
     publicProfile: true,
@@ -77,6 +82,7 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
     exports: ["pdf", "epub"],
     aiChat: true,
     batchGenerate: true,
+    aiImageGeneration: true,
     priorityAi: true,
     customBranding: true,
     publicProfile: true,

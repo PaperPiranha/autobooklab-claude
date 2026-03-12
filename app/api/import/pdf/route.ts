@@ -1,6 +1,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { checkRouteRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
+function getFileType(file: File): "pdf" | "docx" | null {
+  if (file.type === "application/pdf" || file.name.endsWith(".pdf")) return "pdf"
+  if (
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.name.endsWith(".docx")
+  )
+    return "docx"
+  return null
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const {
@@ -19,8 +29,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "No file provided" }, { status: 400 })
   }
 
-  if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
-    return Response.json({ error: "Only PDF files are supported" }, { status: 400 })
+  const fileType = getFileType(file)
+
+  if (!fileType) {
+    return Response.json(
+      { error: "Unsupported file type. Please upload a PDF or Word (.docx) file." },
+      { status: 400 }
+    )
   }
 
   if (file.size > 10 * 1024 * 1024) {
@@ -30,19 +45,34 @@ export async function POST(req: Request) {
   const buffer = Buffer.from(await file.arrayBuffer())
 
   try {
-    // Use direct lib path to avoid pdf-parse test file issue in Next.js
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse/lib/pdf-parse.js")
-    const result = await pdfParse(buffer)
-    const content = result.text
+    if (fileType === "pdf") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfParse = require("pdf-parse/lib/pdf-parse.js")
+      const result = await pdfParse(buffer)
+      const content = result.text
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 20_000)
+
+      return Response.json({ content, pageCount: result.numpages })
+    }
+
+    // DOCX
+    const mammoth = await import("mammoth")
+    const result = await mammoth.extractRawText({ buffer })
+    const content = result.value
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 20_000)
 
-    return Response.json({ content, pageCount: result.numpages })
+    return Response.json({ content })
   } catch {
     return Response.json(
-      { error: "Could not extract text from this PDF. It may be scanned or encrypted." },
+      {
+        error: fileType === "pdf"
+          ? "Could not extract text from this PDF. It may be scanned or encrypted."
+          : "Could not extract text from this Word document. The file may be corrupted.",
+      },
       { status: 422 }
     )
   }

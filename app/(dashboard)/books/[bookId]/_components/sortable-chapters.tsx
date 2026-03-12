@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import {
   DndContext,
@@ -19,9 +19,9 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, PenLine, Trash2, BookOpen } from "lucide-react"
+import { GripVertical, PenLine, Pencil, Trash2, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { reorderChapters, deleteChapter } from "@/app/actions/books"
+import { reorderChapters, deleteChapter, updateChapterTitle } from "@/app/actions/books"
 import { cn } from "@/lib/utils"
 import type { Chapter } from "@/lib/types"
 
@@ -89,6 +89,9 @@ function SortableChapterRow({
   index: number
   bookId: string
 }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [title, setTitle] = useState(chapter.title)
+  const inputRef = useRef<HTMLInputElement>(null)
   const {
     attributes,
     listeners,
@@ -97,6 +100,22 @@ function SortableChapterRow({
     transition,
     isDragging,
   } = useSortable({ id: chapter.id })
+
+  function startEditing() {
+    setTitle(chapter.title)
+    setIsEditing(true)
+    setTimeout(() => inputRef.current?.select(), 0)
+  }
+
+  function saveTitle() {
+    const trimmed = title.trim()
+    if (trimmed && trimmed !== chapter.title) {
+      updateChapterTitle(chapter.id, trimmed, bookId)
+    } else {
+      setTitle(chapter.title)
+    }
+    setIsEditing(false)
+  }
 
   return (
     <li
@@ -126,7 +145,34 @@ function SortableChapterRow({
 
       {/* Title + meta */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{chapter.title}</p>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveTitle()
+              if (e.key === "Escape") {
+                setTitle(chapter.title)
+                setIsEditing(false)
+              }
+            }}
+            className="text-sm font-medium w-full bg-transparent border-b border-primary outline-none py-0.5"
+            autoFocus
+          />
+        ) : (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="text-sm font-medium truncate">{chapter.title}</p>
+            <button
+              onClick={(e) => { e.stopPropagation(); startEditing() }}
+              className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+              title="Rename chapter"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+        )}
         {(() => {
           const wc =
             chapter.word_count ||

@@ -41,6 +41,109 @@ export function LayoutsTab() {
 
   const layouts: Layout[] = [
     {
+      label: "Full-Bleed Image Cover",
+      description: "Full-page image + overlaid title",
+      preview: (
+        <>
+          <div className="absolute inset-0 bg-[#93c5fd]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <PreviewBar top="55%" left="10%" width="80%" height="10%" color="#ffffff" />
+          <PreviewBar top="70%" left="20%" width="60%" height="5%" color="rgba(255,255,255,0.6)" />
+        </>
+      ),
+      apply: (dispatch, state) => {
+        dispatch({ type: "SET_PAGE_BG", pageId: state.activePageId, backgroundColor: "#000000" })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("image"), x: 0, y: 0, w: 794, h: 1123, zIndex: 0, content: { src: "", alt: "Cover background" }, styles: { objectFit: "cover", borderRadius: 0 } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("chapter-heading"), x: 72, y: 600, w: 650, h: 180, content: { text: "Book Title" }, styles: { fontSize: 56, fontWeight: 700, color: "#ffffff", textAlign: "center" } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("text"), x: 122, y: 790, w: 550, h: 60, content: { text: "Subtitle or tagline" }, styles: { fontSize: 20, color: "rgba(255,255,255,0.8)", textAlign: "center" } },
+        })
+      },
+    },
+    {
+      label: "Split Cover",
+      description: "Image top, title on accent bg bottom",
+      preview: (
+        <>
+          <PreviewBar top="0" left="0" width="100%" height="55%" color="#93c5fd" />
+          <div className="absolute bottom-0 left-0 right-0 top-[55%] bg-[#F97316]" />
+          <PreviewBar top="65%" left="15%" width="70%" height="10%" color="#ffffff" />
+          <PreviewBar top="80%" left="25%" width="50%" height="5%" color="rgba(255,255,255,0.6)" />
+        </>
+      ),
+      apply: (dispatch, state) => {
+        dispatch({ type: "SET_PAGE_BG", pageId: state.activePageId, backgroundColor: "#F97316" })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("image"), x: 0, y: 0, w: 794, h: 560, content: { src: "", alt: "Cover image" }, styles: { objectFit: "cover", borderRadius: 0 } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("chapter-heading"), x: 72, y: 620, w: 650, h: 140, content: { text: "Book Title" }, styles: { fontSize: 52, fontWeight: 700, color: "#ffffff", textAlign: "center" } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("text"), x: 122, y: 780, w: 550, h: 60, content: { text: "Subtitle or tagline" }, styles: { fontSize: 18, color: "rgba(255,255,255,0.7)", textAlign: "center" } },
+        })
+      },
+    },
+    {
+      label: "Minimal Text Cover",
+      description: "Solid colour, large centred title",
+      preview: (
+        <>
+          <div className="absolute inset-0 bg-[#1a1a1a]" />
+          <PreviewBar top="38%" left="15%" width="70%" height="14%" color="#ffffff" />
+          <PreviewBar top="58%" left="30%" width="40%" height="4%" color="rgba(255,255,255,0.4)" />
+        </>
+      ),
+      apply: (dispatch, state) => {
+        dispatch({ type: "SET_PAGE_BG", pageId: state.activePageId, backgroundColor: "#1a1a1a" })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("chapter-heading"), x: 72, y: 380, w: 650, h: 200, content: { text: "Book Title" }, styles: { fontSize: 64, fontWeight: 700, color: "#ffffff", textAlign: "center", lineHeight: 1.1 } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("text"), x: 172, y: 600, w: 450, h: 60, content: { text: "Subtitle goes here" }, styles: { fontSize: 18, color: "rgba(255,255,255,0.5)", textAlign: "center" } },
+        })
+      },
+    },
+    {
+      label: "Photo Band Cover",
+      description: "Image strip across middle",
+      preview: (
+        <>
+          <div className="absolute inset-0 bg-white" />
+          <PreviewBar top="8%" left="15%" width="70%" height="8%" color="#374151" />
+          <PreviewBar top="30%" left="0" width="100%" height="40%" color="#93c5fd" />
+          <PreviewBar top="80%" left="25%" width="50%" height="5%" color="#9ca3af" />
+        </>
+      ),
+      apply: (dispatch, state) => {
+        dispatch({ type: "SET_PAGE_BG", pageId: state.activePageId, backgroundColor: "#ffffff" })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("chapter-heading"), x: 72, y: 80, w: 650, h: 140, content: { text: "Book Title" }, styles: { fontSize: 48, fontWeight: 700, color: "#1a1a1a", textAlign: "center" } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("image"), x: 0, y: 340, w: 794, h: 440, content: { src: "", alt: "Cover image band" }, styles: { objectFit: "cover", borderRadius: 0 } },
+        })
+        dispatch({
+          type: "ADD_ELEMENT",
+          element: { ...makeDefaultElement("text"), x: 172, y: 850, w: 450, h: 60, content: { text: "Author Name" }, styles: { fontSize: 18, color: "#666666", textAlign: "center" } },
+        })
+      },
+    },
+    {
       label: "Cover Page",
       description: "Dark bg, title & subtitle",
       preview: (
